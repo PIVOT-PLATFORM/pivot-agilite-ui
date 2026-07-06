@@ -1,0 +1,9 @@
+# Tout changement requiert review de l'équipe frontend
+* @ApoSkunz @0bno @Destinea @tellebma @leo-brgn
+
+# Workflows et config CI/CD
+.github/workflows/ @ApoSkunz @0bno @Destinea @tellebma @leo-brgn
+.github/CODEOWNERS @ApoSkunz @0bno @Destinea @tellebma @leo-brgn
+
+# Contrat de modules
+src/app/features/ @ApoSkunz @0bno @Destinea @tellebma @leo-brgn

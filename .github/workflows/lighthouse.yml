@@ -1,0 +1,165 @@
+name: Lighthouse
+
+# Audit accessibilite (WCAG) sur main, contre une stack pivot-core reelle
+# (image GHCR + postgres + redis) — pivot-core reste le backend requis (auth), voir e2e.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  # Image GHCR pivot-core : owner=pivot-platform, repo=pivot-core, image=pivot-core → nom répété.
+  CORE_IMAGE: ghcr.io/pivot-platform/pivot-core/pivot-core:latest
+
+jobs:
+  lighthouse:
+    name: Lighthouse — Accessibilité
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: pivot_lh
+          POSTGRES_USER: pivot
+          POSTGRES_PASSWORD: pivot_lh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U pivot -d pivot_lh"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start pivot-core (seed profile)
+        run: |
+          docker run -d --name pivot-core \
+            --network ${{ job.services.postgres.network }} \
+            -p 8080:8080 \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pivot_lh \
+            -e SPRING_DATASOURCE_USERNAME=pivot \
+            -e SPRING_DATASOURCE_PASSWORD=pivot_lh \
+            -e SPRING_DATA_REDIS_HOST=redis \
+            -e SPRING_DATA_REDIS_PORT=6379 \
+            -e SPRING_PROFILES_ACTIVE=test \
+            -e MANAGEMENT_HEALTH_MAIL_ENABLED=false \
+            ${{ env.CORE_IMAGE }}
+
+      - name: Wait for pivot-core
+        run: |
+          curl --retry 40 --retry-delay 3 --retry-connrefused --retry-all-errors \
+            --fail --silent --show-error --output /dev/null \
+            http://localhost:8080/api/actuator/health
+
+      - name: Setup Node + npm
+        uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Angular (CI config — apiUrl http://localhost:8080)
+        run: npm run build -- --configuration ci
+
+      - name: Serve Angular build
+        # Projet Angular = "frontend" → dist/frontend/browser (pas dist/pivot-agilite-ui).
+        run: npx --yes serve dist/frontend/browser -p 4200 --single &
+
+      - name: Wait for frontend
+        run: curl --retry 15 --retry-delay 1 --retry-connrefused --silent --output /dev/null http://localhost:4200/
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1
+        id: setup-chrome
+
+      - name: Run Lighthouse CI (placeholder route)
+        env:
+          LHCI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: |
+          set +e
+          # IMPORTANT : le binaire Lighthouse CI vient de @lhci/cli (pinné). `npx lhci`
+          # SANS scope installe un package npm tiers homonyme ("lhci", non Lighthouse) —
+          # il s'exécutait en no-op (exit 0) sans produire d'audit ni de rapport.
+          # autorun = collect + assert + upload(filesystem) → lighthouse-reports/{public,auth}/
+          # (HTML + *.report.json + manifest.json), exploités par le résumé et l'artifact.
+          LHCI="npx --yes @lhci/cli@0.15.1"
+          $LHCI autorun --config=.lighthouserc.noauth.json
+          RC_PUBLIC=$?
+          echo "public rc=$RC_PUBLIC"
+          [ "$RC_PUBLIC" -eq 0 ]
+
+      - name: Lighthouse — résumé agrégé
+        if: always()
+        run: |
+          {
+            echo "## Lighthouse — Accessibilité PIVOT-AGILITE-UI"
+            echo ""
+            echo "| Page | A11y | Perf | SEO | Bonnes pratiques |"
+            echo "|------|------|------|-----|------------------|"
+            # manifest.json (un par dossier public/auth) = source fiable des scores agrégés
+            # par URL (run représentatif). Plus robuste que parser les LHR bruts.
+            for m in $(find lighthouse-reports -name "manifest.json" 2>/dev/null); do
+              jq -r '.[] | select(.isRepresentativeRun)
+                | "| \(.url) "
+                + "| \((.summary.accessibility * 100) | round)% "
+                + "| \((.summary.performance * 100) | round)% "
+                + "| \((.summary.seo * 100) | round)% "
+                + "| \((.summary["best-practices"] * 100) | round)% |"' "$m"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dump pivot-core logs on failure
+        if: failure()
+        run: docker logs pivot-core || true
+
+      - name: Stop pivot-core
+        if: always()
+        run: docker rm -f pivot-core || true
+
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lighthouse-report
+          path: lighthouse-reports/
+          retention-days: 7
