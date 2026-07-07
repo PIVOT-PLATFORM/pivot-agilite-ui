@@ -1,7 +1,14 @@
 name: Lighthouse
 
-# Audit accessibilite (WCAG) sur main, contre une stack pivot-core reelle
-# (image GHCR + postgres + redis) — pivot-core reste le backend requis (auth), voir e2e.yml.
+# Audit accessibilite (WCAG) sur main, contre le build Angular servi statiquement.
+#
+# Squelette actuel (bootstrap) : seule la route placeholder (features/home) existe et est
+# auditée ici (.lighthouserc.noauth.json, http://localhost:4200/) — aucun appel backend.
+# pivot-core n'est donc pas démarré (voir e2e.yml pour le détail complet du root-cause : la
+# route placeholder n'exerce aucune requête HTTP, et le pull GHCR cross-repo de l'image privée
+# pivot-core était de toute façon refusé, "Manage Actions access" du package non accordé à ce
+# repo). À réintroduire dès qu'une vraie feature nécessite l'audit d'une page authentifiée
+# (.lighthouserc.json, profil "auth", pour l'instant non invoqué par ce workflow).
 
 on:
   push:
@@ -19,10 +26,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
-env:
-  # Image GHCR pivot-core : owner=pivot-platform, repo=pivot-core, image=pivot-core → nom répété.
-  CORE_IMAGE: ghcr.io/pivot-platform/pivot-core/pivot-core:latest
-
 jobs:
   lighthouse:
     name: Lighthouse — Accessibilité
@@ -30,33 +33,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      packages: read
       statuses: write
-
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_DB: pivot_lh
-          POSTGRES_USER: pivot
-          POSTGRES_PASSWORD: pivot_lh
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U pivot -d pivot_lh"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd="redis-cli ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
 
     steps:
       - name: Checkout
@@ -64,40 +41,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Login to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Start pivot-core (seed profile)
-        run: |
-          docker run -d --name pivot-core \
-            --network ${{ job.services.postgres.network }} \
-            -p 8080:8080 \
-            -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pivot_lh \
-            -e SPRING_DATASOURCE_USERNAME=pivot \
-            -e SPRING_DATASOURCE_PASSWORD=pivot_lh \
-            -e SPRING_DATA_REDIS_HOST=redis \
-            -e SPRING_DATA_REDIS_PORT=6379 \
-            -e SPRING_PROFILES_ACTIVE=test \
-            -e MANAGEMENT_HEALTH_MAIL_ENABLED=false \
-            ${{ env.CORE_IMAGE }}
-
-      - name: Wait for pivot-core
-        run: |
-          curl --retry 40 --retry-delay 3 --retry-connrefused --retry-all-errors \
-            --fail --silent --show-error --output /dev/null \
-            http://localhost:8080/api/actuator/health
-
       - name: Setup Node + npm
         uses: ./.github/actions/setup-node
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Angular (CI config — apiUrl http://localhost:8080)
+      - name: Build Angular (CI config)
         run: npm run build -- --configuration ci
 
       - name: Serve Angular build
@@ -147,14 +97,6 @@ jobs:
                 + "| \((.summary["best-practices"] * 100) | round)% |"' "$m"
             done
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Dump pivot-core logs on failure
-        if: failure()
-        run: docker logs pivot-core || true
-
-      - name: Stop pivot-core
-        if: always()
-        run: docker rm -f pivot-core || true
 
       - name: Upload Lighthouse report
         if: always()

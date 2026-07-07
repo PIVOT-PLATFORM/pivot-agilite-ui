@@ -1,10 +1,25 @@
 name: E2E
 
-# Tests E2E Playwright contre une stack pivot-core reelle (image GHCR + postgres + redis).
-# pivot-core reste le backend requis ici : l'auth (opaque tokens) est émise par pivot-core
-# pour tous les modules — voir pivot-agilite-core/CLAUDE.md. Une fois de vraies routes
-# métier agilité développées, ce workflow devra aussi démarrer pivot-agilite-core (:8082)
-# à côté de pivot-core pour couvrir les appels /api/agilite/** (hors périmètre bootstrap).
+# Tests E2E Playwright contre le build Angular servi statiquement (dist/frontend/browser).
+#
+# Squelette actuel (bootstrap) : une seule route placeholder (features/home,
+# "PIVOT Agilité"), aucun appel HTTP au backend (environment.ts pointe vers
+# pivot-agilite-core :8082, jamais appelé par ce squelette). pivot-core (ce workflow le
+# démarrait auparavant en conteneur Docker via l'image GHCR) n'est donc PAS nécessaire ici
+# et n'est plus démarré :
+# - il n'était de toute façon exercé par aucune requête réelle du squelette (page
+#   placeholder pure), et son URL (:8080) ne correspond même pas à environment.ts (:8082,
+#   pivot-agilite-core) ;
+# - le pull `docker run` de l'image privée `ghcr.io/pivot-platform/pivot-core/pivot-core`
+#   échouait de toute façon avec "denied" : le package GHCR de pivot-core n'a jamais accordé
+#   l'accès Actions ("Manage Actions access", réglage web UI uniquement, pas d'API) au repo
+#   pivot-agilite-ui — contrairement à pivot-ui, déjà autorisé. Root-cause CI réelle
+#   documentée ici (runs 28828158251 / 28828158230, 2026-07-06).
+#
+# À réintroduire — pivot-agilite-core (:8082), jamais pivot-core (:8080) — dès qu'une vraie
+# feature de ce module appelle le backend ; et, dans tous les cas, seulement après que le
+# mainteneur ait accordé l'accès Actions au package GHCR concerné pour ce repo.
+#
 # Bloquant : un test KO fait echouer le workflow (required status check).
 
 on:
@@ -27,11 +42,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
-env:
-  # pivot-core publie son image sous ghcr.io/<owner>/pivot-core/pivot-core (le nom de repo
-  # est répété : owner=pivot-platform, repo=pivot-core, image=pivot-core).
-  CORE_IMAGE: ghcr.io/pivot-platform/pivot-core/pivot-core:latest
-
 jobs:
   e2e:
     name: E2E - Playwright
@@ -39,65 +49,12 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-      packages: read
-
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_DB: pivot_e2e
-          POSTGRES_USER: pivot
-          POSTGRES_PASSWORD: pivot_e2e
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U pivot -d pivot_e2e"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd="redis-cli ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
 
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-
-      - name: Login to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Start pivot-core (E2E seed profile)
-        run: |
-          docker run -d --name pivot-core \
-            --network ${{ job.services.postgres.network }} \
-            -p 8080:8080 \
-            -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pivot_e2e \
-            -e SPRING_DATASOURCE_USERNAME=pivot \
-            -e SPRING_DATASOURCE_PASSWORD=pivot_e2e \
-            -e SPRING_DATA_REDIS_HOST=redis \
-            -e SPRING_DATA_REDIS_PORT=6379 \
-            -e SPRING_PROFILES_ACTIVE=test \
-            -e MANAGEMENT_HEALTH_MAIL_ENABLED=false \
-            ${{ env.CORE_IMAGE }}
-
-      - name: Wait for pivot-core
-        run: |
-          curl --retry 40 --retry-delay 3 --retry-connrefused --retry-all-errors \
-            --fail --silent --show-error --output /dev/null \
-            http://localhost:8080/api/actuator/health
 
       - name: Setup Node.js 24
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -111,10 +68,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Build Angular (CI config — apiUrl http://localhost:8080)
-        # Config `ci` = optimisations prod SANS le fileReplacement vers /api.
-        # L'app sert sur :4200 (serve, pas de proxy) et appelle le backend :8080 directement.
-        # La config `production` (image Docker/nginx) utilise /api/agilite proxifié.
+      - name: Build Angular (CI config)
         run: npm run build -- --configuration ci
 
       - name: Serve Angular build
@@ -122,17 +76,7 @@ jobs:
         run: npx --yes serve dist/frontend/browser -p 4200 --single &
 
       - name: Run Playwright
-        env:
-          PIVOT_API_URL: http://localhost:8080
         run: npx playwright test --project=chromium
-
-      - name: Dump pivot-core logs on failure
-        if: failure()
-        run: docker logs pivot-core || true
-
-      - name: Stop pivot-core
-        if: always()
-        run: docker rm -f pivot-core || true
 
       - name: Upload Playwright report
         if: always()
