@@ -1,5 +1,27 @@
 {
   "home": {
     "title": "PIVOT Agilité"
+  },
+  "scrumPoker": {
+    "createRoom": {
+      "title": "Créer une room de planning poker",
+      "nameLabel": "Nom de la room",
+      "nameRequired": "Le nom de la room est requis.",
+      "nameTooLong": "Le nom ne doit pas dépasser 120 caractères.",
+      "submit": "Créer la room",
+      "submitting": "Création en cours…",
+      "success": "Room créée avec succès.",
+      "inviteCodeLabel": "Code d'invitation",
+      "copyButton": "Copier le code d'invitation",
+      "copySuccess": "Code d'invitation copié dans le presse-papiers.",
+      "copyError": "Impossible de copier le code — copiez-le manuellement.",
+      "createAnother": "Créer une autre room",
+      "errors": {
+        "unauthorized": "Vous devez être connecté pour créer une room.",
+        "invalidName": "Le nom de la room est invalide.",
+        "invalidRequest": "La demande est invalide. Vérifiez le nom de la room.",
+        "generic": "Une erreur est survenue. Veuillez réessayer."
+      }
+    }
   }
 }

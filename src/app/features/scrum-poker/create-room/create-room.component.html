@@ -1,0 +1,84 @@
+<section class="create-room" aria-labelledby="create-room-heading">
+  <h1 id="create-room-heading">{{ 'scrumPoker.createRoom.title' | transloco }}</h1>
+
+  @if (createdRoom(); as room) {
+    <div class="create-room__success" role="status" aria-live="polite">
+      <p>{{ 'scrumPoker.createRoom.success' | transloco }}</p>
+
+      <dl class="create-room__summary">
+        <dt>{{ 'scrumPoker.createRoom.nameLabel' | transloco }}</dt>
+        <dd>{{ room.name }}</dd>
+
+        <dt id="invite-code-label">{{ 'scrumPoker.createRoom.inviteCodeLabel' | transloco }}</dt>
+        <dd>
+          <span class="create-room__invite-code" aria-labelledby="invite-code-label">
+            {{ room.inviteCode }}
+          </span>
+          <button
+            type="button"
+            class="create-room__copy"
+            [attr.aria-label]="'scrumPoker.createRoom.copyButton' | transloco"
+            (click)="copyInviteCode()"
+          >
+            {{ 'scrumPoker.createRoom.copyButton' | transloco }}
+          </button>
+        </dd>
+      </dl>
+
+      @if (copyAnnouncementKey(); as copyKey) {
+        <p class="create-room__copy-announcement" role="status" aria-live="polite">
+          {{ copyKey | transloco }}
+        </p>
+      }
+
+      <button type="button" class="create-room__another" (click)="createAnother()">
+        {{ 'scrumPoker.createRoom.createAnother' | transloco }}
+      </button>
+    </div>
+  } @else {
+    <form class="create-room__form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="create-room__field">
+        <label class="create-room__label" for="room-name">
+          {{ 'scrumPoker.createRoom.nameLabel' | transloco }}
+        </label>
+        <input
+          id="room-name"
+          class="create-room__input"
+          type="text"
+          formControlName="name"
+          [attr.aria-invalid]="form.controls.name.invalid && form.controls.name.touched"
+          [attr.aria-describedby]="
+            form.controls.name.invalid && form.controls.name.touched ? 'room-name-error' : null
+          "
+        />
+        @if (form.controls.name.invalid && form.controls.name.touched) {
+          <p id="room-name-error" class="create-room__error" role="alert">
+            @if (form.controls.name.hasError('required')) {
+              {{ 'scrumPoker.createRoom.nameRequired' | transloco }}
+            } @else if (form.controls.name.hasError('maxlength')) {
+              {{ 'scrumPoker.createRoom.nameTooLong' | transloco }}
+            }
+          </p>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="create-room__submit"
+        [disabled]="submitting()"
+        [attr.aria-busy]="submitting()"
+      >
+        {{
+          (submitting()
+            ? 'scrumPoker.createRoom.submitting'
+            : 'scrumPoker.createRoom.submit'
+          ) | transloco
+        }}
+      </button>
+
+      @if (errorMessageKey(); as errorKey) {
+        <p class="create-room__error" role="alert">{{ errorKey | transloco }}</p>
+      }
+    </form>
+  }
+</section>
