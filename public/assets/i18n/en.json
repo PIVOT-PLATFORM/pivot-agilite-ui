@@ -1,5 +1,53 @@
 {
   "home": {
     "title": "PIVOT Agility"
+  },
+  "wheels": {
+    "list": {
+      "title": "My wheels",
+      "selectTeam": "Team",
+      "noTeams": "You don't belong to any team.",
+      "create": "Create a wheel",
+      "empty": "No wheels for this team.",
+      "edit": "Edit",
+      "delete": "Delete",
+      "loadError": "Unable to load wheels.",
+      "retry": "Retry",
+      "deleteSuccess": "Wheel deleted.",
+      "deleteError": "Unable to delete the wheel.",
+      "dismiss": "Dismiss"
+    },
+    "confirmDelete": {
+      "title": "Delete this wheel?",
+      "message": "\"{{name}}\" and all its entries will be permanently deleted.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "form": {
+      "createTitle": "Create a wheel",
+      "editTitle": "Edit wheel",
+      "nameLabel": "Wheel name",
+      "entriesTitle": "Entries",
+      "entriesEmpty": "Add at least one entry.",
+      "memberPickerLabel": "Add a team member",
+      "addMember": "Add",
+      "freeTextLabel": "Add a free-text name",
+      "addFreeText": "Add",
+      "weightLabel": "Weight",
+      "remove": "Remove",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveSuccess": "Wheel saved.",
+      "saveError": "Unable to save the wheel.",
+      "retry": "Retry",
+      "loadError": "Unable to load this wheel.",
+      "errors": {
+        "INVALID_NAME": "The name must be between 1 and 100 characters.",
+        "EMPTY_ENTRIES": "Add at least one entry.",
+        "DUPLICATE_ENTRY": "This entry is already in the wheel.",
+        "INVALID_ENTRY_TEAM_MEMBER": "This member does not belong to this team.",
+        "INVALID_WEIGHT": "Weight must be between 1 and 10."
+      }
+    }
   }
 }
