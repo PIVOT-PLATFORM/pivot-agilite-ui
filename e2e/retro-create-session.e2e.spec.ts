@@ -58,7 +58,10 @@ test.describe('Create retrospective session — happy path (US20.1.1)', () => {
     await page.getByRole('button', { name: 'Créer la session' }).click();
 
     await expect(page.getByRole('heading', { name: 'Session créée' })).toBeVisible();
-    await expect(page.getByText('A3F9K2')).toBeVisible();
+    // `exact: true` disambiguates from the visually-hidden aria-live announcement paragraph,
+    // which also contains the joinCode as part of a longer sentence (both are legitimately
+    // present at once: one for sighted users, one as an explicit screen-reader announcement).
+    await expect(page.getByText('A3F9K2', { exact: true })).toBeVisible();
     await expect(page.getByText('Rétro Sprint 8')).toBeVisible();
   });
 });
