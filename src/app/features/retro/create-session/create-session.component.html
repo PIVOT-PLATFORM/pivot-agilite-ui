@@ -1,0 +1,224 @@
+<section class="create-session">
+  <h1 class="create-session__title">{{ 'retro.createSession.title' | transloco }}</h1>
+
+  @if (!session()) {
+    <form class="create-session__form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="create-session__field">
+        <label class="create-session__label" for="retro-title">{{
+          'retro.createSession.form.titleLabel' | transloco
+        }}</label>
+        <input
+          id="retro-title"
+          type="text"
+          class="create-session__input"
+          formControlName="title"
+          maxlength="100"
+          [attr.aria-invalid]="form.controls.title.invalid && form.controls.title.touched"
+          [attr.aria-describedby]="form.controls.title.invalid && form.controls.title.touched ? 'retro-title-error' : null"
+        />
+        @if (form.controls.title.invalid && form.controls.title.touched) {
+          <p class="create-session__error" id="retro-title-error" role="alert">
+            @if (form.controls.title.hasError('required')) {
+              {{ 'retro.createSession.form.titleRequired' | transloco }}
+            } @else if (form.controls.title.hasError('maxlength')) {
+              {{ 'retro.createSession.form.titleMaxLength' | transloco }}
+            }
+          </p>
+        }
+      </div>
+
+      <div class="create-session__field">
+        <label class="create-session__label" for="retro-team-id">{{
+          'retro.createSession.form.teamIdLabel' | transloco
+        }}</label>
+        <p class="create-session__hint" id="retro-team-id-hint">
+          {{ 'retro.createSession.form.teamIdHint' | transloco }}
+        </p>
+        <input
+          id="retro-team-id"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          class="create-session__input"
+          formControlName="teamId"
+          aria-describedby="retro-team-id-hint"
+          [attr.aria-invalid]="form.controls.teamId.invalid && form.controls.teamId.touched"
+        />
+        @if (form.controls.teamId.invalid && form.controls.teamId.touched) {
+          <p class="create-session__error" id="retro-team-id-error" role="alert">
+            @if (form.controls.teamId.hasError('required')) {
+              {{ 'retro.createSession.form.teamIdRequired' | transloco }}
+            } @else if (form.controls.teamId.hasError('positiveInteger')) {
+              {{ 'retro.createSession.form.teamIdPositive' | transloco }}
+            }
+          </p>
+        }
+      </div>
+
+      <div class="create-session__field">
+        <label class="create-session__label" for="retro-format">{{
+          'retro.createSession.form.formatLabel' | transloco
+        }}</label>
+        <select
+          id="retro-format"
+          class="create-session__input"
+          formControlName="format"
+          [attr.aria-invalid]="form.controls.format.invalid && form.controls.format.touched"
+        >
+          <option value="" disabled>{{ 'retro.createSession.form.formatPlaceholder' | transloco }}</option>
+          @for (fmt of formats; track fmt) {
+            <option [value]="fmt">{{ 'retro.createSession.form.format.' + fmt | transloco }}</option>
+          }
+        </select>
+        @if (form.controls.format.invalid && form.controls.format.touched) {
+          <p class="create-session__error" role="alert">
+            {{ 'retro.createSession.form.formatRequired' | transloco }}
+          </p>
+        }
+      </div>
+
+      <div class="create-session__field">
+        <label class="create-session__label" for="retro-sprint-ref">{{
+          'retro.createSession.form.sprintRefLabel' | transloco
+        }}</label>
+        <input
+          id="retro-sprint-ref"
+          type="text"
+          maxlength="100"
+          class="create-session__input"
+          formControlName="sprintRef"
+          [attr.aria-invalid]="form.controls.sprintRef.invalid && form.controls.sprintRef.touched"
+        />
+        @if (form.controls.sprintRef.invalid && form.controls.sprintRef.touched) {
+          <p class="create-session__error" role="alert">
+            {{ 'retro.createSession.form.sprintRefMaxLength' | transloco }}
+          </p>
+        }
+      </div>
+
+      <fieldset class="create-session__fieldset">
+        <legend>{{ 'retro.createSession.form.timersLegend' | transloco }}</legend>
+
+        <div class="create-session__field">
+          <label class="create-session__label" for="retro-contribution-timer">{{
+            'retro.createSession.form.contributionTimerLabel' | transloco
+          }}</label>
+          <input
+            id="retro-contribution-timer"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            class="create-session__input"
+            formControlName="contributionTimerSeconds"
+            [attr.aria-invalid]="form.controls.contributionTimerSeconds.invalid && form.controls.contributionTimerSeconds.touched"
+          />
+          @if (form.controls.contributionTimerSeconds.invalid && form.controls.contributionTimerSeconds.touched) {
+            <p class="create-session__error" role="alert">
+              {{ 'retro.createSession.form.timerPositive' | transloco }}
+            </p>
+          }
+        </div>
+
+        <div class="create-session__field">
+          <label class="create-session__label" for="retro-vote-timer">{{
+            'retro.createSession.form.voteTimerLabel' | transloco
+          }}</label>
+          <input
+            id="retro-vote-timer"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            class="create-session__input"
+            formControlName="voteTimerSeconds"
+            [attr.aria-invalid]="form.controls.voteTimerSeconds.invalid && form.controls.voteTimerSeconds.touched"
+          />
+          @if (form.controls.voteTimerSeconds.invalid && form.controls.voteTimerSeconds.touched) {
+            <p class="create-session__error" role="alert">
+              {{ 'retro.createSession.form.timerPositive' | transloco }}
+            </p>
+          }
+        </div>
+
+        <div class="create-session__field">
+          <label class="create-session__label" for="retro-action-timer">{{
+            'retro.createSession.form.actionTimerLabel' | transloco
+          }}</label>
+          <input
+            id="retro-action-timer"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            class="create-session__input"
+            formControlName="actionTimerSeconds"
+            [attr.aria-invalid]="form.controls.actionTimerSeconds.invalid && form.controls.actionTimerSeconds.touched"
+          />
+          @if (form.controls.actionTimerSeconds.invalid && form.controls.actionTimerSeconds.touched) {
+            <p class="create-session__error" role="alert">
+              {{ 'retro.createSession.form.timerPositive' | transloco }}
+            </p>
+          }
+        </div>
+      </fieldset>
+
+      <div class="create-session__field">
+        <label class="create-session__label" for="retro-vote-count">{{
+          'retro.createSession.form.voteCountLabel' | transloco
+        }}</label>
+        <input
+          id="retro-vote-count"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          class="create-session__input"
+          formControlName="voteCountPerParticipant"
+          [attr.aria-invalid]="form.controls.voteCountPerParticipant.invalid && form.controls.voteCountPerParticipant.touched"
+        />
+        @if (form.controls.voteCountPerParticipant.invalid && form.controls.voteCountPerParticipant.touched) {
+          <p class="create-session__error" role="alert">
+            {{ 'retro.createSession.form.voteCountPositive' | transloco }}
+          </p>
+        }
+      </div>
+
+      @if (errorKey(); as key) {
+        <p class="create-session__error create-session__error--submit" role="alert">{{ key | transloco }}</p>
+      }
+
+      <button type="submit" class="create-session__submit" [disabled]="submitting()">
+        {{ (submitting() ? 'retro.createSession.form.submitting' : 'retro.createSession.form.submit') | transloco }}
+      </button>
+    </form>
+  }
+
+  @if (session(); as created) {
+    <section class="create-session__result" aria-live="polite">
+      <p class="create-session__sr-only">{{ announceText() }}</p>
+      <h2>{{ 'retro.createSession.result.heading' | transloco }}</h2>
+
+      <div class="create-session__join-code-block">
+        <span class="create-session__join-code-label" id="retro-join-code-label">{{
+          'retro.createSession.result.joinCodeLabel' | transloco
+        }}</span>
+        <span class="create-session__join-code" aria-labelledby="retro-join-code-label">{{ created.joinCode }}</span>
+        <button type="button" class="create-session__copy" (click)="copyJoinCode()">
+          {{ (copied() ? 'retro.createSession.result.copied' : 'retro.createSession.result.copy') | transloco }}
+        </button>
+      </div>
+
+      <dl class="create-session__details">
+        <dt>{{ 'retro.createSession.result.titleLabel' | transloco }}</dt>
+        <dd>{{ created.title }}</dd>
+        <dt>{{ 'retro.createSession.result.formatLabel' | transloco }}</dt>
+        <dd>{{ 'retro.createSession.form.format.' + created.format | transloco }}</dd>
+        <dt>{{ 'retro.createSession.result.phaseLabel' | transloco }}</dt>
+        <dd>{{ 'retro.createSession.result.phase.' + created.currentPhase | transloco }}</dd>
+        <dt>{{ 'retro.createSession.result.expiresAtLabel' | transloco }}</dt>
+        <dd>{{ formatInstant(created.expiresAt) }}</dd>
+      </dl>
+
+      <button type="button" class="create-session__another" (click)="createAnother()">
+        {{ 'retro.createSession.result.createAnother' | transloco }}
+      </button>
+    </section>
+  }
+</section>

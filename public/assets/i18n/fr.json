@@ -49,5 +49,69 @@
         "INVALID_WEIGHT": "Le poids doit être compris entre 1 et 10."
       }
     }
+  },
+  "retro": {
+    "createSession": {
+      "title": "Créer une session de rétrospective",
+      "form": {
+        "titleLabel": "Titre",
+        "titleRequired": "Le titre est requis.",
+        "titleMaxLength": "Le titre doit contenir 100 caractères maximum.",
+        "teamIdLabel": "ID de l'équipe",
+        "teamIdHint": "Sélecteur d'équipe à venir (dépend de @pivot/ui-core) — saisir l'identifiant numérique de l'équipe en attendant.",
+        "teamIdRequired": "L'identifiant de l'équipe est requis.",
+        "teamIdPositive": "L'identifiant de l'équipe doit être un nombre entier positif.",
+        "formatLabel": "Format",
+        "formatPlaceholder": "Choisir un format",
+        "formatRequired": "Le format est requis.",
+        "format": {
+          "START_STOP_CONTINUE": "Start / Stop / Continue",
+          "KIF_KAF": "KIF / KAF",
+          "FOUR_L": "4L",
+          "MAD_SAD_GLAD": "Mad / Sad / Glad",
+          "CUSTOM": "Personnalisé"
+        },
+        "sprintRefLabel": "Référence du sprint (optionnel)",
+        "sprintRefMaxLength": "La référence du sprint doit contenir 100 caractères maximum.",
+        "timersLegend": "Minuteurs par phase (optionnels, en secondes)",
+        "contributionTimerLabel": "Minuteur de contribution (secondes)",
+        "voteTimerLabel": "Minuteur de vote (secondes)",
+        "actionTimerLabel": "Minuteur d'actions (secondes)",
+        "timerPositive": "Le minuteur doit être un nombre entier de secondes strictement positif.",
+        "voteCountLabel": "Nombre de votes par participant (optionnel, défaut 3)",
+        "voteCountPositive": "Le nombre de votes doit être un nombre entier strictement positif.",
+        "submit": "Créer la session",
+        "submitting": "Création en cours…"
+      },
+      "result": {
+        "heading": "Session créée",
+        "joinCodeLabel": "Code de participation",
+        "copy": "Copier le code",
+        "copied": "Code copié !",
+        "announce": "Session créée. Code de participation : {{joinCode}}.",
+        "titleLabel": "Titre",
+        "formatLabel": "Format",
+        "phaseLabel": "Phase actuelle",
+        "expiresAtLabel": "Expire le",
+        "phase": {
+          "CONTRIBUTION": "Contribution",
+          "REVUE": "Revue",
+          "VOTE": "Vote",
+          "ACTION": "Actions",
+          "CLOSED": "Clôturée"
+        },
+        "createAnother": "Créer une autre session"
+      },
+      "error": {
+        "INVALID_TITLE": "Le titre est invalide (requis, 100 caractères maximum).",
+        "INVALID_FORMAT": "Le format sélectionné est invalide.",
+        "INVALID_TIMER": "Un des minuteurs doit être un nombre entier de secondes strictement positif.",
+        "INVALID_VOTE_COUNT": "Le nombre de votes par participant doit être un nombre entier strictement positif.",
+        "teamNotFound": "Équipe introuvable.",
+        "teamAccessDenied": "Vous n'êtes pas membre de cette équipe.",
+        "unauthorized": "Authentification requise — fonctionnalité non disponible tant que le module d'authentification (@pivot/ui-core) n'est pas intégré.",
+        "generic": "Une erreur est survenue lors de la création de la session. Veuillez réessayer."
+      }
+    }
   }
 }
