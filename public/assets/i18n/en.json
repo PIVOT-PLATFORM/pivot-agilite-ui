@@ -113,5 +113,27 @@
         "generic": "Something went wrong while creating the session. Please try again."
       }
     }
+  },
+  "scrumPoker": {
+    "createRoom": {
+      "title": "Create a planning poker room",
+      "nameLabel": "Room name",
+      "nameRequired": "The room name is required.",
+      "nameTooLong": "The name must not exceed 120 characters.",
+      "submit": "Create room",
+      "submitting": "Creating…",
+      "success": "Room created successfully.",
+      "inviteCodeLabel": "Invite code",
+      "copyButton": "Copy invite code",
+      "copySuccess": "Invite code copied to clipboard.",
+      "copyError": "Could not copy the code — copy it manually.",
+      "createAnother": "Create another room",
+      "errors": {
+        "unauthorized": "You must be signed in to create a room.",
+        "invalidName": "The room name is invalid.",
+        "invalidRequest": "The request is invalid. Check the room name.",
+        "generic": "Something went wrong. Please try again."
+      }
+    }
   }
 }
