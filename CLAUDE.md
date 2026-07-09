@@ -19,7 +19,7 @@ uniquement les features métier du domaine Agilité et leur intégration au shel
   factice** ajoutée — à câbler dès que le package existe réellement.
 - `@pivot/design-system` (GitHub Packages) — composants visuels partagés (Angular CDK + SCSS BEM
   custom, cf. `ADR-007`). **Repo pas encore créé** (`pivot-design-system`, Enabler `EN17.2`,
-  `Stage: Backlog`) — même traitement honnête : pas de dépendance factice.
+  `Stage: ⬜`) — même traitement honnête : pas de dépendance factice.
 
 **Backend associé :** **pivot-agilite-core** (Java/Spring Boot, port `:8082` en dev, schéma
 Flyway `agilite`) — API REST `/api/agilite/**` et WebSocket `/ws/agilite/**` (nginx route par
@@ -152,7 +152,7 @@ Toute contribution mobilise les experts concernés — les mentionner explicitem
 |-------|---------|
 | Item Type | Epic / Feature / Enabler / US |
 | Parent | clé du parent (ex. `E01`, `F01.1`) |
-| Stage | Backlog / Ready / In progress / Review / Done |
+| Stage | ⬜ (pas encore terminé) / ✅ (Done — recette mainteneur). États intermédiaires internes, non persistés → pivot-docs/docs/backlog/README.md §2/§5 |
 | Priority | Critical / High / Medium / Low |
 | Module | core / auth / admin / oidc / pilotage / agilite / collaboratif |
 | Phase | Socle / v1-enterprise / phase-3 |
@@ -194,7 +194,7 @@ Travail organisé par sprint. Référence : **`pivot-docs/docs/backlog/sprints/`
 **Principes :**
 - **Une branche par US / Enabler** — `feat/{us-id}-{slug}`
 - **Agents en parallèle** — un agent par item du sprint, branches séparées
-- **Backlog pivot-docs** — mises à jour `Stage` dans le frontmatter US + `sprints/sprint-{N}.md`, committés sur la branche de l'US
+- **Backlog pivot-docs** — `Stage` dans le frontmatter US n'est touché qu'à la création (`⬜`) et au passage Done (`✅`) ; `sprints/sprint-{N}.md` reflète les états intermédiaires internes, committés sur la branche de l'US
 - **Issue GitHub liée** — avant de démarrer un item, vérifier qu'une issue existe dans **ce repo** pour cet US/Enabler (recherche par id/titre). Absente → la créer (titre `{id} — {titre US}`, corps = lien vers le fichier backlog pivot-docs + AC). **Déjà assignée** (humain ou agent en cours) → item déjà pris, ne pas démarrer, passer au suivant. Sinon → se l'auto-assigner immédiatement (`gh issue edit {N} --add-assignee @me`) avant le premier commit — verrouille l'item, empêche qu'un autre agent ou une autre personne ne le reprenne en parallèle. Référencer l'issue dans la PR (`Closes #N`) — fermeture automatique à la fusion, jamais de fermeture manuelle en double.
 
 ## Workflow — Merge séquentiel autonome (plusieurs PR)
@@ -253,7 +253,7 @@ Après toute modification sur une branche de travail — **sans exception** :
    - **Convergence** — Gate 4 ≥ 85 ET CI verte → sortir
 3. Gate 4 = 100/100 (ou convergence confirmée sans finding restant) :
    - Sortir la PR du mode draft (`gh pr ready`)
-   - `Stage: Review` dans frontmatter US + `sprints/sprint-{N}.md` (branche/PR dédiée `pivot-docs`)
+   - État interne Review (`sprints/sprint-{N}.md`, branche/PR dédiée `pivot-docs`) — `Stage` frontmatter US reste `⬜` jusqu'au Done
    - **Gate 5** — générer/mettre à jour la spec fonctionnelle et technique figée `pivot-docs/docs/specs/{EPIC}/{us-id}-{slug}.md` (branche/PR `pivot-docs` dédiée — jamais de commit cross-repo)
    - Signal mainteneur
 4. Blocage 20 boucles → Breaking Point 2
@@ -357,7 +357,7 @@ dossier `gates/`). Le statut vit dans le champ **Stage** du frontmatter US (pivo
 
 | Gate | Moment | Seuils |
 |------|--------|--------|
-| **1 — READINESS** | Avant implémentation | PO Agent self-challenge · = 100 → Stage: Ready → procéder · < 100 → PO Agent réécrit ACs |
+| **1 — READINESS** | Avant implémentation | PO Agent self-challenge · = 100 → état interne Ready → procéder (Stage frontmatter reste ⬜) · < 100 → PO Agent réécrit ACs |
 | **2 — COVERAGE** | Par commit | ≥ 85 → continuer · 70–84 → compléter tests · < 70 → stop |
 | **3 — QUALITY** | Après CI verte | Hard blocks : secret Gitleaks, label `security`/`breaking-change`, modif contrat module |
 | **4 — MERGE CONFIDENCE** | Avant merge | ≥ 85 → merge autonome · 60–84 → merge documenté · < 60 → Breaking Point 2 |
