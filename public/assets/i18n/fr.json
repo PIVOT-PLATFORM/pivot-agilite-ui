@@ -1,5 +1,53 @@
 {
   "home": {
     "title": "PIVOT Agilité"
+  },
+  "wheels": {
+    "list": {
+      "title": "Mes roues",
+      "selectTeam": "Équipe",
+      "noTeams": "Vous n'appartenez à aucune équipe.",
+      "create": "Créer une roue",
+      "empty": "Aucune roue pour cette équipe.",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "loadError": "Impossible de charger les roues.",
+      "retry": "Réessayer",
+      "deleteSuccess": "Roue supprimée.",
+      "deleteError": "Impossible de supprimer la roue.",
+      "dismiss": "Fermer"
+    },
+    "confirmDelete": {
+      "title": "Supprimer la roue ?",
+      "message": "« {{name}} » sera définitivement supprimée, ainsi que tous ses participants.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "form": {
+      "createTitle": "Créer une roue",
+      "editTitle": "Modifier la roue",
+      "nameLabel": "Nom de la roue",
+      "entriesTitle": "Participants",
+      "entriesEmpty": "Ajoutez au moins un participant.",
+      "memberPickerLabel": "Ajouter un membre de l'équipe",
+      "addMember": "Ajouter",
+      "freeTextLabel": "Ajouter un nom libre",
+      "addFreeText": "Ajouter",
+      "weightLabel": "Poids",
+      "remove": "Retirer",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saveSuccess": "Roue enregistrée.",
+      "saveError": "Impossible d'enregistrer la roue.",
+      "retry": "Réessayer",
+      "loadError": "Impossible de charger cette roue.",
+      "errors": {
+        "INVALID_NAME": "Le nom doit contenir entre 1 et 100 caractères.",
+        "EMPTY_ENTRIES": "Ajoutez au moins un participant.",
+        "DUPLICATE_ENTRY": "Cette entrée est déjà présente dans la roue.",
+        "INVALID_ENTRY_TEAM_MEMBER": "Ce membre n'appartient pas à cette équipe.",
+        "INVALID_WEIGHT": "Le poids doit être compris entre 1 et 10."
+      }
+    }
   }
 }
