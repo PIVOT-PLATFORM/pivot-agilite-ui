@@ -2,23 +2,24 @@ name: E2E
 
 # Tests E2E Playwright contre le build Angular servi statiquement (dist/frontend/browser).
 #
-# Squelette actuel (bootstrap) : une seule route placeholder (features/home,
-# "PIVOT Agilité"), aucun appel HTTP au backend (environment.ts pointe vers
-# pivot-agilite-core :8082, jamais appelé par ce squelette). pivot-core (ce workflow le
-# démarrait auparavant en conteneur Docker via l'image GHCR) n'est donc PAS nécessaire ici
-# et n'est plus démarré :
-# - il n'était de toute façon exercé par aucune requête réelle du squelette (page
-#   placeholder pure), et son URL (:8080) ne correspond même pas à environment.ts (:8082,
-#   pivot-agilite-core) ;
-# - le pull `docker run` de l'image privée `ghcr.io/pivot-platform/pivot-core/pivot-core`
-#   échouait de toute façon avec "denied" : le package GHCR de pivot-core n'a jamais accordé
-#   l'accès Actions ("Manage Actions access", réglage web UI uniquement, pas d'API) au repo
-#   pivot-agilite-ui — contrairement à pivot-ui, déjà autorisé. Root-cause CI réelle
-#   documentée ici (runs 28828158251 / 28828158230, 2026-07-06).
+# Historique (bootstrap) : à l'origine une seule route placeholder (features/home), aucun
+# appel HTTP au backend — pivot-core (que ce workflow démarrait auparavant en conteneur
+# Docker via l'image GHCR) avait été retiré car : (a) non exercé par la page placeholder,
+# (b) son URL (:8080) ne correspondait même pas à environment.ts (:8082, pivot-agilite-core),
+# (c) le pull `docker run` de l'image privée `ghcr.io/pivot-platform/pivot-core/pivot-core`
+# échouait avec "denied" (accès Actions cross-repo jamais accordé). Root-cause CI réelle
+# documentée ici (runs 28828158251 / 28828158230, 2026-07-06).
 #
-# À réintroduire — pivot-agilite-core (:8082), jamais pivot-core (:8080) — dès qu'une vraie
-# feature de ce module appelle le backend ; et, dans tous les cas, seulement après que le
-# mainteneur ait accordé l'accès Actions au package GHCR concerné pour ce repo.
+# Depuis US20.1.1 (création de session de rétrospective, `features/retro/create-session`) :
+# une vraie feature appelle bien le backend (`POST /api/agilite/retro/sessions`). Un
+# conteneur `pivot-agilite-core` réel n'est **toujours pas** démarré ici : ce backend n'a
+# publié aucune image GHCR à ce jour (pas de release — à la différence de
+# `pivot-collaboratif-core`, dont `pivot-collaboratif-ui/e2e.yml` démarre un conteneur réel).
+# Les specs `e2e/retro-*.e2e.spec.ts` stubbent donc la réponse backend au niveau réseau via
+# `page.route` (Playwright) — ça n'a donc pas besoin d'un backend démarré ici, seulement du
+# build Angular statique déjà en place. À réintroduire un vrai `pivot-agilite-core` (:8082,
+# jamais pivot-core :8080) — sur le modèle de `pivot-collaboratif-ui/e2e.yml` — dès qu'une
+# image GHCR est publiée pour ce backend et que l'accès Actions cross-repo est accordé.
 #
 # Bloquant : un test KO fait echouer le workflow (required status check).
 
