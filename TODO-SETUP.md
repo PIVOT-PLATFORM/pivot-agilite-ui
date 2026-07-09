@@ -72,3 +72,4 @@ un second) avec ces 13 checks requis, à l'identique de pivot-ui :
 - Docker preview image (PR)
 
 Référence exacte : `gh api repos/PIVOT-PLATFORM/pivot-ui/rulesets/17930084`.
+# probe
