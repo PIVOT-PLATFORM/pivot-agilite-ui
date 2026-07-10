@@ -134,6 +134,29 @@
         "invalidRequest": "La demande est invalide. Vérifiez le nom de la room.",
         "generic": "Une erreur est survenue. Veuillez réessayer."
       }
+    },
+    "joinRoom": {
+      "title": "Rejoindre une room de planning poker",
+      "codeLabel": "Code de la room",
+      "codeRequired": "Le code est requis.",
+      "codeInvalidLength": "Le code doit contenir exactement 6 caractères.",
+      "submit": "Rejoindre la room",
+      "submitting": "Connexion en cours…",
+      "success": "Room rejointe avec succès.",
+      "nameLabel": "Nom de la room",
+      "joinAnother": "Rejoindre une autre room",
+      "wsStatus": {
+        "connecting": "Connexion au salon temps réel…",
+        "connected": "Connecté au salon temps réel.",
+        "error": "Connexion au salon temps réel impossible."
+      },
+      "errors": {
+        "unauthorized": "Vous devez être connecté pour rejoindre une room.",
+        "invalidCode": "Le code saisi est invalide.",
+        "notFound": "Code introuvable ou expiré.",
+        "invalidRequest": "La demande est invalide. Vérifiez le code saisi.",
+        "generic": "Une erreur est survenue. Veuillez réessayer."
+      }
     }
   }
 }
