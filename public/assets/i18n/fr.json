@@ -177,6 +177,8 @@
       "triggerReveal": "Révéler les cards",
       "openVoteNow": "Ouvrir le vote",
       "closeVoteNow": "Clôturer le vote",
+      "closeSessionNow": "Clôturer la session maintenant",
+      "closedBanner": "Cette session est clôturée : lecture seule, plus aucune écriture n'est acceptée.",
       "submitAnonymously": "Soumettre anonymement",
       "noCards": "Aucune card pour le moment.",
       "facilitatorPreview": "Aperçu animateur (contenu en clair avant révélation)",
@@ -193,6 +195,11 @@
       },
       "ranking": {
         "heading": "Classement des cards"
+      },
+      "action": {
+        "createFromCard": "Créer une action",
+        "createLabel": "Créer une action à partir de « {{content}} »",
+        "created": "Action créée."
       },
       "error": {
         "notFound": "Session introuvable.",

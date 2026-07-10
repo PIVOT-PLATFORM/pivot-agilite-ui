@@ -41,6 +41,8 @@ describe('SessionRoomComponent', () => {
   let revealSpy: ReturnType<typeof vi.fn>;
   let openVoteSpy: ReturnType<typeof vi.fn>;
   let closeVoteSpy: ReturnType<typeof vi.fn>;
+  let closeSessionSpy: ReturnType<typeof vi.fn>;
+  let createActionSpy: ReturnType<typeof vi.fn>;
   let wsConnectSpy: ReturnType<typeof vi.fn>;
   let wsDisconnectSpy: ReturnType<typeof vi.fn>;
   let wsSubmitCardSpy: ReturnType<typeof vi.fn>;
@@ -97,6 +99,8 @@ describe('SessionRoomComponent', () => {
     );
     openVoteSpy = vi.fn().mockReturnValue(of({ currentPhase: 'VOTE' }));
     closeVoteSpy = vi.fn().mockReturnValue(of({ currentPhase: 'ACTION' }));
+    closeSessionSpy = vi.fn().mockReturnValue(of({ currentPhase: 'CLOSED' }));
+    createActionSpy = vi.fn().mockReturnValue(of({ id: 'action-1' }));
     wsConnectSpy = vi.fn();
     wsDisconnectSpy = vi.fn();
     wsSubmitCardSpy = vi.fn();
@@ -121,6 +125,8 @@ describe('SessionRoomComponent', () => {
             reveal: revealSpy,
             openVote: openVoteSpy,
             closeVote: closeVoteSpy,
+            closeSession: closeSessionSpy,
+            createAction: createActionSpy,
           },
         },
         {
@@ -761,5 +767,232 @@ describe('SessionRoomComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('actionFailed');
+  });
+
+  // ── Action phase / session closure (US20.1.2c) ──
+
+  const RANKED_CARDS = [
+    { cardId: 'card-1', columnKey: 'went-well', content: 'Great job', voteCount: 5 },
+    { cardId: 'card-2', columnKey: 'to-improve', content: 'Slow reviews', voteCount: 2 },
+    { cardId: 'card-3', columnKey: 'went-well', content: 'Nice pace', voteCount: 1 },
+  ];
+
+  function moveToAction(fixture: ComponentFixture<SessionRoomComponent>): void {
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'PHASE_CHANGED',
+        sessionId: SESSION_ID,
+        previousPhase: 'VOTE',
+        currentPhase: 'ACTION',
+        changedAt: '2026-07-10T12:05:00Z',
+        rankedCards: RANKED_CARDS,
+      }),
+    );
+    fixture.detectChanges();
+  }
+
+  it('groups the vote-count ranking by column, in format order, each group preserving vote-count-descending order', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as {
+      rankedColumnEntries: () => { key: string; label: string; cards: { cardId: string }[] }[];
+    };
+    const entries = component.rankedColumnEntries();
+
+    expect(entries.map(e => e.key)).toEqual(['went-well', 'to-improve']);
+    expect(entries[0].cards.map(c => c.cardId)).toEqual(['card-1', 'card-3']);
+    expect(entries[1].cards.map(c => c.cardId)).toEqual(['card-2']);
+  });
+
+  it('omits a column from the ranking view when it has no ranked cards', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'PHASE_CHANGED',
+        sessionId: SESSION_ID,
+        previousPhase: 'VOTE',
+        currentPhase: 'ACTION',
+        changedAt: '2026-07-10T12:05:00Z',
+        rankedCards: [{ cardId: 'card-1', columnKey: 'went-well', content: 'Great job', voteCount: 5 }],
+      }),
+    );
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as {
+      rankedColumnEntries: () => { key: string }[];
+    };
+    expect(component.rankedColumnEntries().map(e => e.key)).toEqual(['went-well']);
+  });
+
+  it('renders a "create action" trigger per ranked card while in ACTION phase, calling the API with the card as source', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const button = fixture.nativeElement.querySelector('.session-room__create-action-button') as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    button.click();
+
+    expect(createActionSpy).toHaveBeenCalledWith(SESSION_ID, { title: 'Great job', sourceCardId: 'card-1' });
+  });
+
+  it('createActionFromCard() is available to a non-facilitator participant (AC: "l\'animateur ou un participant")', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as {
+      createActionFromCard: (card: { cardId: string; columnKey: string; content: string; voteCount: number }) => void;
+    };
+    component.createActionFromCard(RANKED_CARDS[0]);
+
+    expect(createActionSpy).toHaveBeenCalledWith(SESSION_ID, { title: 'Great job', sourceCardId: 'card-1' });
+  });
+
+  it('shows a success message once createActionFromCard() succeeds', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as {
+      createActionFromCard: (card: { cardId: string; columnKey: string; content: string; voteCount: number }) => void;
+      actionCreationResultFor: (id: string) => string | null;
+    };
+    component.createActionFromCard(RANKED_CARDS[0]);
+    fixture.detectChanges();
+
+    expect(component.actionCreationResultFor('card-1')).toBe('success');
+    expect(fixture.nativeElement.textContent).toContain('created');
+  });
+
+  it('handles createActionFromCard() failure gracefully (US20.3.1 endpoint not built yet) without throwing', () => {
+    configure(NON_FACILITATOR_GRANT);
+    createActionSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as {
+      createActionFromCard: (card: { cardId: string; columnKey: string; content: string; voteCount: number }) => void;
+      actionCreationResultFor: (id: string) => string | null;
+    };
+    expect(() => component.createActionFromCard(RANKED_CARDS[0])).not.toThrow();
+    fixture.detectChanges();
+
+    expect(component.actionCreationResultFor('card-1')).toBe('error');
+    expect(fixture.nativeElement.textContent).toContain('actionFailed');
+  });
+
+  it('createActionFromCard() no-ops while a call for the same card is already in flight', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const pending = new Subject<unknown>();
+    createActionSpy.mockReturnValue(pending);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as {
+      createActionFromCard: (card: { cardId: string; columnKey: string; content: string; voteCount: number }) => void;
+    };
+    component.createActionFromCard(RANKED_CARDS[0]);
+    component.createActionFromCard(RANKED_CARDS[0]);
+
+    expect(createActionSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show the create-action trigger once the session is CLOSED', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'SESSION_CLOSED',
+        sessionId: SESSION_ID,
+        previousPhase: 'ACTION',
+        closedAt: '2026-07-10T12:10:00Z',
+      }),
+    );
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.session-room__create-action-button')).toBeNull();
+  });
+
+  it('applies a SESSION_CLOSED event: switches phase to CLOSED and shows the read-only banner', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'SESSION_CLOSED',
+        sessionId: SESSION_ID,
+        previousPhase: 'ACTION',
+        closedAt: '2026-07-10T12:10:00Z',
+      }),
+    );
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { phase: () => string; closedAt: () => string | null };
+    expect(component.phase()).toBe('CLOSED');
+    expect(component.closedAt()).toBe('2026-07-10T12:10:00Z');
+    expect(fixture.nativeElement.textContent).toContain('closedBanner');
+  });
+
+  it('facilitator: shows the close-session control while the session is in ACTION', () => {
+    configure(FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('closeSessionNow');
+  });
+
+  it('facilitator: closeSessionNow() calls the API and updates the phase', () => {
+    configure(FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { closeSessionNow: () => void; phase: () => string };
+    component.closeSessionNow();
+
+    expect(closeSessionSpy).toHaveBeenCalledWith(SESSION_ID);
+    expect(component.phase()).toBe('CLOSED');
+  });
+
+  it('surfaces an error when closeSessionNow() fails', () => {
+    configure(FACILITATOR_GRANT);
+    closeSessionSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { closeSessionNow: () => void };
+    component.closeSessionNow();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('actionFailed');
+  });
+
+  it('does not show the close-session control once the session is already CLOSED', () => {
+    configure(FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as { closeSessionNow: () => void };
+    component.closeSessionNow();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('closeSessionNow');
   });
 });

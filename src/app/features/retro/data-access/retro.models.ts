@@ -270,13 +270,30 @@ export interface VoteUncastEvent {
   voteCount: number;
 }
 
+/**
+ * `SESSION_CLOSED` event received on the regular session topic when a session transitions to
+ * its terminal `CLOSED` phase (US20.1.2c) — facilitator-triggered or timer-based, always from
+ * `ACTION`. A dedicated event type, distinct from {@link PhaseChangedEvent} — see the backend
+ * `SessionClosedEvent`'s JavaDoc for why: `CLOSED` is a terminal state every client must treat
+ * unambiguously as "read-only from now on".
+ */
+export interface SessionClosedEvent {
+  type: 'SESSION_CLOSED';
+  sessionId: string;
+  /** Always `'ACTION'` — kept explicit rather than assumed. */
+  previousPhase: RetroPhase;
+  /** ISO instant. */
+  closedAt: string;
+}
+
 /** Discriminated union of every event type carried on the regular session topic. */
 export type RetroSessionTopicEvent =
   | CardAddedMaskedEvent
   | PhaseChangedEvent
   | CardsRevealedEvent
   | VoteCastEvent
-  | VoteUncastEvent;
+  | VoteUncastEvent
+  | SessionClosedEvent;
 
 /**
  * `VOTE_BALANCE` event received on the caller's own private `/user/queue/votes` (US20.1.2b),
@@ -315,6 +332,28 @@ export interface OpenVoteResponse {
 /** Response body for `POST /retro/sessions/{id}/vote/close` (US20.1.2b). */
 export interface CloseVoteResponse {
   currentPhase: RetroPhase;
+}
+
+/** Response body for `POST /retro/sessions/{id}/close` (US20.1.2c). */
+export interface CloseSessionResponse {
+  currentPhase: RetroPhase;
+}
+
+/**
+ * Request body for `POST /retro/sessions/{id}/actions` — US20.3.1's endpoint, not yet built
+ * (next wave after this US). This US only provides the contextualized trigger point (AC:
+ * "cette US ne réimplémente pas la persistance, elle ne fait que le déclenchement
+ * contextualisé"), so this shape is provisional: built from US20.3.1's own backlog outline
+ * ("titre, owner, échéance, card source optionnelle") — `title`/`sourceCardId` are populated by
+ * the session room view's create-action trigger, `ownerId`/`dueDate` are not yet exposed by any
+ * UI here and simply left unset. Reconcile with the real request DTO once US20.3.1 lands.
+ */
+export interface CreateRetroActionRequest {
+  title: string;
+  ownerId?: number;
+  /** ISO date. */
+  dueDate?: string;
+  sourceCardId?: string;
 }
 
 /**

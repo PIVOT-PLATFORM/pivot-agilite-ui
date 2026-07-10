@@ -4,7 +4,9 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
   CloseContributionResponse,
+  CloseSessionResponse,
   CloseVoteResponse,
+  CreateRetroActionRequest,
   CreateRetroFormatRequest,
   CreateRetroSessionRequest,
   OpenVoteResponse,
@@ -159,6 +161,38 @@ export class RetroApiService {
    */
   closeVote(sessionId: string): Observable<CloseVoteResponse> {
     return this.http.post<CloseVoteResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/close`, {});
+  }
+
+  /**
+   * Manually closes the session (facilitator only, US20.1.2c), immediately transitioning to the
+   * terminal `CLOSED` phase — every participant receives `SESSION_CLOSED` on the realtime
+   * channel and the session becomes read-only from then on.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @throws HttpErrorResponse 401 no/invalid token, 403 caller is not the facilitator, 404 unknown
+   *   session or belongs to another tenant, 409 session not currently in `ACTION`.
+   */
+  closeSession(sessionId: string): Observable<CloseSessionResponse> {
+    return this.http.post<CloseSessionResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/close`, {});
+  }
+
+  /**
+   * Triggers action creation from a ranked card in the `ACTION` phase (US20.1.2c) — calls
+   * US20.3.1's `POST /retro/sessions/{id}/actions` with the card as source.
+   *
+   * **US20.3.1 has not shipped yet** (next wave, dependent on this US): this endpoint does not
+   * exist server-side today, so this call is expected to fail (404-equivalent) until it lands.
+   * Built to the correct forward request shape now so wiring the real response requires no
+   * change here later — the session room view already treats any failure of this call as a
+   * recoverable, per-card error, never an unhandled exception.
+   *
+   * @param sessionId the session the card belongs to
+   * @param request the action to create — see {@link CreateRetroActionRequest}'s TSDoc for why
+   *   its shape is provisional
+   */
+  createAction(sessionId: string, request: CreateRetroActionRequest): Observable<unknown> {
+    return this.http.post(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`, request);
   }
 
   /**
