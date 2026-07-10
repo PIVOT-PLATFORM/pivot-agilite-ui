@@ -5,7 +5,9 @@ import { environment } from '../../../../environments/environment';
 import { RetroApiService } from './retro-api.service';
 import {
   CloseContributionResponse,
+  CloseSessionResponse,
   CloseVoteResponse,
+  CreateRetroActionRequest,
   CreateRetroFormatRequest,
   CreateRetroSessionRequest,
   OpenVoteResponse,
@@ -508,6 +510,76 @@ describe('RetroApiService', () => {
       req.flush({ title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
 
       expect((error as { status: number }).status).toBe(409);
+    });
+  });
+
+  describe('closeSession', () => {
+    const sessionId = '11111111-1111-1111-1111-111111111111';
+
+    it('POSTs to /retro/sessions/{id}/close and returns the new phase', () => {
+      let result: CloseSessionResponse | undefined;
+
+      service.closeSession(sessionId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/close`);
+      expect(req.request.method).toBe('POST');
+      req.flush({ currentPhase: 'CLOSED' });
+
+      expect(result).toEqual({ currentPhase: 'CLOSED' });
+    });
+
+    it('propagates a 403 error (caller is not the facilitator)', () => {
+      let error: unknown;
+
+      service.closeSession(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/close`);
+      req.flush({ title: 'Forbidden', status: 403 }, { status: 403, statusText: 'Forbidden' });
+
+      expect((error as { status: number }).status).toBe(403);
+    });
+
+    it('propagates a 409 error (session not currently in ACTION)', () => {
+      let error: unknown;
+
+      service.closeSession(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/close`);
+      req.flush({ title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
+
+      expect((error as { status: number }).status).toBe(409);
+    });
+  });
+
+  describe('createAction', () => {
+    const sessionId = '11111111-1111-1111-1111-111111111111';
+    const request: CreateRetroActionRequest = {
+      title: 'Great job',
+      sourceCardId: 'card-1',
+    };
+
+    it('POSTs to /retro/sessions/{id}/actions with the exact request body', () => {
+      let result: unknown;
+
+      service.createAction(sessionId, request).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual(request);
+      req.flush({ id: 'action-1' }, { status: 201, statusText: 'Created' });
+
+      expect(result).toEqual({ id: 'action-1' });
+    });
+
+    it('propagates a 404 error (US20.3.1 endpoint not yet built server-side)', () => {
+      let error: unknown;
+
+      service.createAction(sessionId, request).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`);
+      req.flush({ title: 'Not Found', status: 404 }, { status: 404, statusText: 'Not Found' });
+
+      expect((error as { status: number }).status).toBe(404);
     });
   });
 });

@@ -17,6 +17,7 @@ import {
   RetroSessionResponse,
   RetroSessionTopicEvent,
   RevealedCard,
+  SessionClosedEvent,
   VoteBalanceEvent,
 } from '../data-access/retro.models';
 
@@ -31,6 +32,18 @@ interface FacilitatorCardView {
   id: string;
   content: string;
   anonymous: boolean;
+}
+
+/**
+ * One column's worth of the vote-count ranking, ready for rendering (US20.1.2c AC: cards sorted
+ * by vote count descending, grouped by column). {@link cards} stays vote-count-descending because
+ * it is built by filtering the already-sorted {@link RankedCard} list — see {@link
+ * SessionRoomComponent.rankedColumnEntries}.
+ */
+interface RankedColumnGroup {
+  key: string;
+  label: string;
+  cards: RankedCard[];
 }
 
 /**
@@ -74,6 +87,13 @@ const FALLBACK_COLUMNS: Record<string, { key: string; labelKey: string }[]> = {
  * <p>Since US20.1.2b, also drives the vote phase: dot-vote cast/uncast on revealed cards, a
  * server-authoritative remaining-votes counter, facilitator open/close-vote controls, and the
  * switch to a ranked-cards view once `PHASE_CHANGED` (`VOTE` → `ACTION`) carries the ranking.
+ *
+ * <p>Since US20.1.2c, also drives the terminal `ACTION` → `CLOSED` transition: the ranking is
+ * rendered grouped by column (not just sorted, see {@link rankedColumnEntries}), a per-card
+ * "create action from this card" trigger calls US20.3.1's not-yet-built endpoint, a facilitator
+ * `closeSessionNow` control transitions to `CLOSED`, and a `SESSION_CLOSED` event switches the
+ * room to its read-only lockdown state (every phase-gated control above simply stops rendering
+ * once {@link phase} is `CLOSED`, since none of them match that phase).
  *
  * No business logic here beyond orchestration — {@link RetroApiService} owns every HTTP call,
  * {@link RetroSessionWsService} owns the STOMP lifecycle and raw frame parsing dispatch happens
@@ -146,6 +166,27 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
    * carries one (US20.1.2b); `null` before then, driving the switch to the ranked-cards view.
    */
   protected readonly rankedCards = signal<RankedCard[] | null>(null);
+
+  /**
+   * When the session closed (US20.1.2c) — set from the `SESSION_CLOSED` event's `closedAt`;
+   * `null` while the session is still open. Purely informational (the read-only lockdown itself
+   * is driven by {@link phase}, not this field).
+   */
+  protected readonly closedAt = signal<string | null>(null);
+
+  /**
+   * card id -> whether a `createActionFromCard` call is currently in flight for that card
+   * (US20.1.2c) — prevents double submission per card; independent of {@link actionPending},
+   * which only ever tracks the facilitator phase-transition controls.
+   */
+  protected readonly actionCreationPending = signal<Record<string, boolean>>({});
+
+  /**
+   * card id -> outcome of the last `createActionFromCard` call for that card (US20.1.2c) —
+   * `'success'` once persisted, `'error'` on any failure (expected until US20.3.1's endpoint
+   * exists server-side), cleared at the start of a new attempt.
+   */
+  protected readonly actionCreationResult = signal<Record<string, 'success' | 'error'>>({});
 
   /**
    * Live countdown, in seconds, until the configured contribution timer elapses — `null` when
@@ -299,6 +340,28 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Facilitator-only: closes the session (US20.1.2c), transitioning to the terminal `CLOSED`
+   * phase — every participant (including the caller) also receives `SESSION_CLOSED` on the
+   * realtime channel; this response is what makes the caller's own UI switch to read-only
+   * immediately, without waiting for that broadcast to arrive.
+   */
+  protected closeSessionNow(): void {
+    this.actionPending.set(true);
+    this.actionErrorKey.set(null);
+    this.retroApi.closeSession(this.sessionId()).subscribe({
+      next: response => {
+        this.actionPending.set(false);
+        this.phase.set(response.currentPhase);
+        this.stopCountdown();
+      },
+      error: () => {
+        this.actionPending.set(false);
+        this.actionErrorKey.set('retro.sessionRoom.error.actionFailed');
+      },
+    });
+  }
+
+  /**
    * Casts one dot-vote on a card (US20.1.2b). No-ops when the phase is not `VOTE` or the caller's
    * known balance is already exhausted — the server remains the final authority regardless (a
    * stale/optimistic {@link votesRemaining} can never be used to exceed the real balance, only to
@@ -356,9 +419,70 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
     return this.myVoteCounts()[cardId] ?? 0;
   }
 
-  /** The display label for a ranked card's column — falls back to the raw key if unresolved. */
-  protected columnLabelFor(columnKey: string): string {
-    return this.columns().find(column => column.key === columnKey)?.label ?? columnKey;
+  /**
+   * The vote-count ranking, grouped by column in the format's own display order, columns with no
+   * ranked cards omitted (US20.1.2c AC: "triées par nombre de votes décroissant, groupées par
+   * colonne"). Each group's {@link RankedColumnGroup.cards} stays vote-count-descending — it is
+   * built by filtering {@link rankedCards}, which is already sorted that way end to end (server-
+   * side ranking, US20.1.2b).
+   */
+  protected rankedColumnEntries(): RankedColumnGroup[] {
+    const ranked = this.rankedCards() ?? [];
+    return this.columns()
+      .map(column => ({
+        key: column.key,
+        label: column.label,
+        cards: ranked.filter(card => card.columnKey === column.key),
+      }))
+      .filter(entry => entry.cards.length > 0);
+  }
+
+  /** Whether a `createActionFromCard` call is currently in flight for this card (US20.1.2c). */
+  protected isCreatingActionFor(cardId: string): boolean {
+    return this.actionCreationPending()[cardId] === true;
+  }
+
+  /** The outcome of the last `createActionFromCard` attempt for this card, if any (US20.1.2c). */
+  protected actionCreationResultFor(cardId: string): 'success' | 'error' | null {
+    return this.actionCreationResult()[cardId] ?? null;
+  }
+
+  /**
+   * Triggers action creation from a ranked card (US20.1.2c) — calls US20.3.1's
+   * `POST /retro/sessions/{id}/actions` with the card as source, using the card's own content as
+   * the action's title. No separate title-entry form here: full action editing/management is
+   * US20.3.1's own frontend scope — this US only provides the contextualized trigger point (AC:
+   * "cette US ne réimplémente pas la persistance, elle ne fait que le déclenchement
+   * contextualisé"). Available to the facilitator or any participant — unlike the phase-
+   * transition controls above, deliberately not facilitator-gated (AC: "l'animateur ou un
+   * participant"). No-ops while a call for this same card is already in flight.
+   *
+   * US20.3.1 has not shipped server-side yet, so this call is expected to fail until it does —
+   * handled the same as any other failure, never an unhandled exception (see {@link
+   * RetroApiService.createAction}'s TSDoc).
+   *
+   * @param card the ranked card to create an action from
+   */
+  protected createActionFromCard(card: RankedCard): void {
+    if (this.isCreatingActionFor(card.cardId)) {
+      return;
+    }
+    this.actionCreationPending.update(current => ({ ...current, [card.cardId]: true }));
+    this.actionCreationResult.update(current => {
+      const next = { ...current };
+      delete next[card.cardId];
+      return next;
+    });
+    this.retroApi.createAction(this.sessionId(), { title: card.content, sourceCardId: card.cardId }).subscribe({
+      next: () => {
+        this.actionCreationPending.update(current => ({ ...current, [card.cardId]: false }));
+        this.actionCreationResult.update(current => ({ ...current, [card.cardId]: 'success' }));
+      },
+      error: () => {
+        this.actionCreationPending.update(current => ({ ...current, [card.cardId]: false }));
+        this.actionCreationResult.update(current => ({ ...current, [card.cardId]: 'error' }));
+      },
+    });
   }
 
   /** The masked count for a column, or 0 if none submitted yet. */
@@ -484,6 +608,9 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
       case 'VOTE_UNCAST':
         this.voteCounts.update(current => ({ ...current, [event.cardId]: event.voteCount }));
         break;
+      case 'SESSION_CLOSED':
+        this.applySessionClosed(event);
+        break;
     }
   }
 
@@ -535,6 +662,13 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
 
   private applyCardsRevealed(event: CardsRevealedEvent): void {
     this.revealedColumns.set(event.columns);
+  }
+
+  /** Applies a `SESSION_CLOSED` event (US20.1.2c) — switches the room to its terminal, read-only state. */
+  private applySessionClosed(event: SessionClosedEvent): void {
+    this.phase.set('CLOSED');
+    this.closedAt.set(event.closedAt);
+    this.stopCountdown();
   }
 
   private resolveJoinErrorKey(error: HttpErrorResponse): string {

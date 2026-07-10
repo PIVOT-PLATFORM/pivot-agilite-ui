@@ -177,6 +177,8 @@
       "triggerReveal": "Reveal cards",
       "openVoteNow": "Open voting",
       "closeVoteNow": "Close voting",
+      "closeSessionNow": "Close the session now",
+      "closedBanner": "This session is closed: read-only, no further writes are accepted.",
       "submitAnonymously": "Submit anonymously",
       "noCards": "No cards yet.",
       "facilitatorPreview": "Facilitator preview (content in clear before reveal)",
@@ -193,6 +195,11 @@
       },
       "ranking": {
         "heading": "Card ranking"
+      },
+      "action": {
+        "createFromCard": "Create action",
+        "createLabel": "Create an action from \"{{content}}\"",
+        "created": "Action created."
       },
       "error": {
         "notFound": "Session not found.",

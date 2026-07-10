@@ -28,6 +28,11 @@
           {{ 'retro.sessionRoom.vote.remaining' | transloco : { remaining: votesRemaining() ?? 0, allowed: votesAllowed() ?? 0 } }}
         </p>
       }
+      @if (phase() === 'CLOSED') {
+        <p class="session-room__closed-banner" role="status" aria-live="polite">
+          {{ 'retro.sessionRoom.closedBanner' | transloco }}
+        </p>
+      }
     </div>
 
     @if (isFacilitator()) {
@@ -52,6 +57,11 @@
             {{ 'retro.sessionRoom.closeVoteNow' | transloco }}
           </button>
         }
+        @if (phase() === 'ACTION') {
+          <button type="button" [disabled]="actionPending()" (click)="closeSessionNow()">
+            {{ 'retro.sessionRoom.closeSessionNow' | transloco }}
+          </button>
+        }
         @if (actionErrorKey(); as actionError) {
           <p class="session-room__error" role="alert">{{ actionError | transloco }}</p>
         }
@@ -69,20 +79,46 @@
       </label>
     }
 
-    @if (rankedCards(); as ranked) {
+    @if (rankedCards()) {
       <section class="session-room__ranking" aria-labelledby="ranking-heading">
         <h2 id="ranking-heading">{{ 'retro.sessionRoom.ranking.heading' | transloco }}</h2>
-        <ol class="session-room__ranking-list">
-          @for (card of ranked; track card.cardId) {
-            <li class="session-room__ranking-item">
-              <span class="session-room__ranking-count">
-                {{ 'retro.sessionRoom.vote.count' | transloco : { count: card.voteCount } }}
-              </span>
-              <span class="session-room__ranking-column">{{ columnLabelFor(card.columnKey) }}</span>
-              <span class="session-room__ranking-content">{{ card.content }}</span>
-            </li>
-          }
-        </ol>
+        @for (columnGroup of rankedColumnEntries(); track columnGroup.key) {
+          <div
+            class="session-room__ranking-group"
+            [attr.aria-labelledby]="'ranking-column-heading-' + columnGroup.key"
+          >
+            <h3 [id]="'ranking-column-heading-' + columnGroup.key">{{ columnGroup.label }}</h3>
+            <ol class="session-room__ranking-list">
+              @for (card of columnGroup.cards; track card.cardId) {
+                <li class="session-room__ranking-item">
+                  <span class="session-room__ranking-count">
+                    {{ 'retro.sessionRoom.vote.count' | transloco : { count: card.voteCount } }}
+                  </span>
+                  <span class="session-room__ranking-content">{{ card.content }}</span>
+                  @if (phase() === 'ACTION') {
+                    <button
+                      type="button"
+                      class="session-room__create-action-button"
+                      [disabled]="isCreatingActionFor(card.cardId)"
+                      [attr.aria-label]="'retro.sessionRoom.action.createLabel' | transloco : { content: card.content }"
+                      (click)="createActionFromCard(card)"
+                    >
+                      {{ 'retro.sessionRoom.action.createFromCard' | transloco }}
+                    </button>
+                    @if (actionCreationResultFor(card.cardId); as result) {
+                      <span class="session-room__action-result" role="status" aria-live="polite">
+                        {{
+                          (result === 'success' ? 'retro.sessionRoom.action.created' : 'retro.sessionRoom.error.actionFailed')
+                            | transloco
+                        }}
+                      </span>
+                    }
+                  }
+                </li>
+              }
+            </ol>
+          </div>
+        }
       </section>
     } @else {
       <div class="session-room__columns">
