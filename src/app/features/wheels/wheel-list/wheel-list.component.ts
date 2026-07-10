@@ -58,7 +58,7 @@ import { WheelApiService } from '../services/wheel-api.service';
           <ul>
             @for (wheel of wheels(); track wheel.id) {
               <li>
-                <span>{{ wheel.name }}</span>
+                <a [routerLink]="['/wheels', wheel.id]">{{ wheel.name }}</a>
                 <a [routerLink]="['/wheels', wheel.id, 'edit']">{{ 'wheels.list.edit' | transloco }}</a>
                 <button type="button" (click)="requestDelete(wheel, $event)">
                   {{ 'wheels.list.delete' | transloco }}
