@@ -78,6 +78,9 @@ test.describe('Retrospective session room — happy path (US20.1.2a)', () => {
           topicDestination: `/topic/agilite/retro/${SESSION_ID}`,
           facilitatorTopicDestination: `/topic/agilite/retro/${SESSION_ID}/facilitator`,
           submitDestination: `/app/agilite/retro/${SESSION_ID}/cards`,
+          voteDestination: `/app/agilite/retro/${SESSION_ID}/votes`,
+          voteUncastDestination: `/app/agilite/retro/${SESSION_ID}/votes/uncast`,
+          voteBalanceDestination: `/app/agilite/retro/${SESSION_ID}/votes/balance`,
         }),
       });
     });
@@ -101,6 +104,102 @@ test.describe('Retrospective session room — happy path (US20.1.2a)', () => {
     await startColumnTextarea.fill('Great sprint pace');
     await page.getByRole('button', { name: 'Proposer' }).first().click();
     await expect(startColumnTextarea).toHaveValue('');
+  });
+});
+
+test.describe('Retrospective session room — vote phase (US20.1.2b)', () => {
+  const REVEAL_ENDPOINT = `**/api/agilite/retro/sessions/${SESSION_ID}/reveal`;
+  const VOTE_OPEN_ENDPOINT = `**/api/agilite/retro/sessions/${SESSION_ID}/vote/open`;
+  const VOTE_CLOSE_ENDPOINT = `**/api/agilite/retro/sessions/${SESSION_ID}/vote/close`;
+
+  test('facilitator reveals, opens the vote, sees vote controls, then closes the vote', async ({ page }) => {
+    await page.route(SESSION_ENDPOINT, async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: SESSION_ID,
+          title: 'Sprint 8 Retro',
+          format: 'START_STOP_CONTINUE',
+          teamId: 42,
+          facilitatorUserId: 7,
+          joinCode: 'A3F9K2',
+          currentPhase: 'REVUE',
+          contributionTimerSeconds: null,
+          voteTimerSeconds: null,
+          actionTimerSeconds: null,
+          voteCountPerParticipant: 3,
+          sprintRef: null,
+          expiresAt: '2026-07-11T00:00:00Z',
+          createdAt: '2026-07-10T00:00:00Z',
+        }),
+      });
+    });
+    await page.route(FORMATS_ENDPOINT, async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FORMATS_RESPONSE) });
+    });
+    await page.route(PARTICIPANTS_ENDPOINT, async (route: Route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accessToken: 'e2e-access-token',
+          ttlSeconds: 3600,
+          facilitator: true,
+          topicDestination: `/topic/agilite/retro/${SESSION_ID}`,
+          facilitatorTopicDestination: `/topic/agilite/retro/${SESSION_ID}/facilitator`,
+          submitDestination: `/app/agilite/retro/${SESSION_ID}/cards`,
+          voteDestination: `/app/agilite/retro/${SESSION_ID}/votes`,
+          voteUncastDestination: `/app/agilite/retro/${SESSION_ID}/votes/uncast`,
+          voteBalanceDestination: `/app/agilite/retro/${SESSION_ID}/votes/balance`,
+        }),
+      });
+    });
+    await page.route(REVEAL_ENDPOINT, async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sessionId: SESSION_ID,
+          cardCount: 1,
+          columns: { START: [{ id: 'card-1', content: 'Great sprint pace' }] },
+        }),
+      });
+    });
+    await page.route(VOTE_OPEN_ENDPOINT, async (route: Route) => {
+      expect(route.request().method()).toBe('POST');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ currentPhase: 'VOTE' }) });
+    });
+    await page.route(VOTE_CLOSE_ENDPOINT, async (route: Route) => {
+      expect(route.request().method()).toBe('POST');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ currentPhase: 'ACTION' }) });
+    });
+
+    await page.goto(`/retro/sessions/${SESSION_ID}`);
+
+    // Session already in REVUE — the reveal control is offered, the vote controls are not yet.
+    await expect(page.getByRole('button', { name: 'Révéler les cards' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ouvrir le vote' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Révéler les cards' }).click();
+    await expect(page.getByText('Great sprint pace')).toBeVisible();
+
+    // Only once cards are revealed does the facilitator get the "open vote" control.
+    await expect(page.getByRole('button', { name: 'Ouvrir le vote' })).toBeVisible();
+    await page.getByRole('button', { name: 'Ouvrir le vote' }).click();
+
+    await expect(page.getByText('Phase : Vote')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clôturer le vote' })).toBeVisible();
+
+    // Cast control is rendered but disabled — the WS never connects in this environment (no
+    // backend listening), so no VOTE_BALANCE ever arrives and votesRemaining stays unknown; the
+    // control correctly refuses to let the caller vote against an unknown balance.
+    const castButton = page.locator('.session-room__vote-button').first();
+    await expect(castButton).toBeVisible();
+    await expect(castButton).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Clôturer le vote' }).click();
+    await expect(page.getByText('Phase : Action')).toBeVisible();
   });
 });
 
