@@ -81,7 +81,8 @@
         "voteCountLabel": "Votes per participant (optional, defaults to 3)",
         "voteCountPositive": "The vote count must be a strictly positive whole number.",
         "submit": "Create session",
-        "submitting": "Creating…"
+        "submitting": "Creating…",
+        "formatColumnCount": "Has {{count}} columns."
       },
       "result": {
         "heading": "Session created",
@@ -110,7 +111,31 @@
         "teamNotFound": "Team not found.",
         "teamAccessDenied": "You are not a member of this team.",
         "unauthorized": "Authentication required — this feature is not available until the authentication module (@pivot/ui-core) is wired in.",
-        "generic": "Something went wrong while creating the session. Please try again."
+        "generic": "Something went wrong while creating the session. Please try again.",
+        "CUSTOM_FORMAT_ID_REQUIRED": "A custom format must be selected or created.",
+        "CUSTOM_FORMAT_NOT_FOUND": "The selected custom format could not be found.",
+        "CUSTOM_FORMAT_ID_NOT_ALLOWED": "The custom format id must only be sent for the \"Custom\" format.",
+        "INVALID_FORMAT_LABEL": "The custom format name is invalid.",
+        "CUSTOM_FORMAT_INVALID_COLUMN_COUNT": "The custom format must have between 2 and 8 columns.",
+        "INVALID_COLUMN_LABEL": "One of the column labels is invalid."
+      },
+      "formatsLoading": "Loading retrospective formats…",
+      "formatsError": "Could not load retrospective formats.",
+      "formatsRetry": "Retry",
+      "customFormat": {
+        "cardHint": "Create a custom format (2 to 8 columns)",
+        "legend": "Custom format",
+        "labelField": "Custom format name",
+        "labelRequired": "The custom format name is required.",
+        "labelMaxLength": "The custom format name must be at most 60 characters.",
+        "columnsHint": "Between 2 and 8 columns, each with a label.",
+        "columnLabel": "Label for column {{position}}",
+        "columnRequired": "The column label is required.",
+        "columnMaxLength": "The column label must be at most 40 characters.",
+        "addColumn": "Add a column",
+        "removeColumn": "Remove this column",
+        "columnAdded": "Column {{position}} added.",
+        "columnRemoved": "Column {{position}} removed."
       }
     }
   },
