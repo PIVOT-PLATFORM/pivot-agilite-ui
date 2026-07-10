@@ -48,6 +48,24 @@
         "INVALID_ENTRY_TEAM_MEMBER": "This member does not belong to this team.",
         "INVALID_WEIGHT": "Weight must be between 1 and 10."
       }
+    },
+    "detail": {
+      "loadError": "Unable to load this wheel.",
+      "modeLabel": "Anti-repeat mode",
+      "mode": {
+        "reduced_weight": "Reduced weight",
+        "exclude": "Exclude"
+      },
+      "spin": "Spin the wheel",
+      "spinning": "Spinning…",
+      "spinError": "Unable to perform the draw.",
+      "result": {
+        "announce": "Draw result: {{label}}."
+      },
+      "history": {
+        "title": "Draw history",
+        "empty": "No draw yet."
+      }
     }
   },
   "retro": {

@@ -48,6 +48,24 @@
         "INVALID_ENTRY_TEAM_MEMBER": "Ce membre n'appartient pas à cette équipe.",
         "INVALID_WEIGHT": "Le poids doit être compris entre 1 et 10."
       }
+    },
+    "detail": {
+      "loadError": "Impossible de charger cette roue.",
+      "modeLabel": "Mode anti-répétition",
+      "mode": {
+        "reduced_weight": "Poids réduit",
+        "exclude": "Exclure"
+      },
+      "spin": "Lancer le tirage",
+      "spinning": "Tirage en cours…",
+      "spinError": "Impossible d'effectuer le tirage.",
+      "result": {
+        "announce": "Résultat du tirage : {{label}}."
+      },
+      "history": {
+        "title": "Historique des tirages",
+        "empty": "Aucun tirage effectué pour le moment."
+      }
     }
   },
   "retro": {
