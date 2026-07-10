@@ -36,6 +36,7 @@
                 type="button"
                 class="session-room__vote-button"
                 [disabled]="warmupUpdatingActionId() === action.id"
+                [attr.aria-label]="'retro.sessionRoom.warmup.markDoneLabel' | transloco : { title: action.title }"
                 (click)="markPendingAction(action, 'TERMINEE')"
               >
                 {{ 'retro.sessionRoom.warmup.markDone' | transloco }}
@@ -44,6 +45,7 @@
                 type="button"
                 class="session-room__vote-button"
                 [disabled]="warmupUpdatingActionId() === action.id"
+                [attr.aria-label]="'retro.sessionRoom.warmup.markAbandonedLabel' | transloco : { title: action.title }"
                 (click)="markPendingAction(action, 'ABANDONNEE')"
               >
                 {{ 'retro.sessionRoom.warmup.markAbandoned' | transloco }}

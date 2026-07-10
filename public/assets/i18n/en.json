@@ -260,7 +260,9 @@
         "dueDatePrefix": "Due date:",
         "noDueDate": "No due date",
         "markDone": "Mark done",
+        "markDoneLabel": "Mark done — {{ title }}",
         "markAbandoned": "Mark abandoned",
+        "markAbandonedLabel": "Mark abandoned — {{ title }}",
         "updateError": "The status change failed. Please try again.",
         "allResolved": "All actions have been resolved.",
         "continue": "Continue to the retrospective"

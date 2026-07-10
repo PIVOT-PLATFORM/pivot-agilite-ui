@@ -260,7 +260,9 @@
         "dueDatePrefix": "Échéance :",
         "noDueDate": "Aucune échéance",
         "markDone": "Marquer terminée",
+        "markDoneLabel": "Marquer terminée — {{ title }}",
         "markAbandoned": "Marquer abandonnée",
+        "markAbandonedLabel": "Marquer abandonnée — {{ title }}",
         "updateError": "Le changement de statut a échoué. Veuillez réessayer.",
         "allResolved": "Toutes les actions ont été traitées.",
         "continue": "Continuer vers la rétrospective"

@@ -1420,6 +1420,30 @@ describe('SessionRoomComponent', () => {
   });
 
   /**
+   * A11y AC: each mark-status button carries its own `aria-label`, parameterized with the
+   * action's title (mirrors the vote cast/uncast buttons' existing `aria-label` convention
+   * elsewhere in this component — {@link RetroSessionWsService}'s `castLabel`/`uncastLabel`) so a
+   * screen-reader user tabbing through several pending actions hears which one each button
+   * applies to, not a generic "Marquer terminée" repeated for every row. `TranslocoTestingModule`
+   * is configured with empty language dictionaries in this spec (see `configure()`), so the
+   * interpolated title itself cannot be asserted here — only that the dedicated, per-status
+   * `aria-label` translation key is wired up at all (same depth already used for every other
+   * `errorKey`/status-key assertion in this file).
+   */
+  it('gives each mark-status button its own dedicated aria-label key', () => {
+    configure(NON_FACILITATOR_GRANT);
+    listPendingActionsSpy.mockReturnValue(of([PENDING_ACTION]));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const buttons = fixture.nativeElement.querySelectorAll(
+      '.session-room__warmup .session-room__vote-button',
+    ) as NodeListOf<HTMLButtonElement>;
+    expect(buttons[0].getAttribute('aria-label')).toContain('markDoneLabel');
+    expect(buttons[1].getAttribute('aria-label')).toContain('markAbandonedLabel');
+  });
+
+  /**
    * Security AC: a pending action's title must be rendered via text interpolation only — a
    * malicious payload containing markup must appear as literal text, never parsed as HTML.
    */
