@@ -53,6 +53,15 @@ export const routes: Routes = [
       ),
   },
   {
+    // US20.3.1 — "Actions de l'équipe" : consultable hors contexte de session, filtrable par
+    // statut, triable par échéance.
+    path: 'retro/teams/:teamId/actions',
+    loadComponent: () =>
+      import('./features/retro/team-actions/team-actions.component').then(
+        m => m.TeamActionsComponent,
+      ),
+  },
+  {
     path: 'scrum-poker/rooms/new',
     loadComponent: () =>
       import('./features/scrum-poker/create-room/create-room.component').then(

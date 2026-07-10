@@ -1,0 +1,82 @@
+<section class="team-actions" aria-labelledby="team-actions-heading">
+  <h1 id="team-actions-heading">{{ 'teamActions.title' | transloco }}</h1>
+
+  @if (missingTeamId()) {
+    <p class="team-actions__error" role="alert">{{ 'teamActions.missingTeamId' | transloco }}</p>
+  } @else {
+    <div class="team-actions__controls">
+      <div class="team-actions__field">
+        <label for="team-actions-status-filter">{{ 'teamActions.filterLabel' | transloco }}</label>
+        <select
+          id="team-actions-status-filter"
+          [value]="statusFilter()"
+          (change)="onStatusFilterChange($any($event.target).value)"
+        >
+          <option value="ALL">{{ 'teamActions.filterAll' | transloco }}</option>
+          @for (status of allStatuses; track status) {
+            <option [value]="status">{{ 'teamActions.status.' + status | transloco }}</option>
+          }
+        </select>
+      </div>
+
+      <button type="button" (click)="toggleSortDirection()">
+        {{
+          'teamActions.sortLabel' | transloco
+        }}
+        —
+        {{ (sortDirection() === 'asc' ? 'teamActions.sortAscending' : 'teamActions.sortDescending') | transloco }}
+      </button>
+    </div>
+
+    @if (loading()) {
+      <p role="status" aria-live="polite">{{ 'teamActions.loading' | transloco }}</p>
+    } @else if (loadError()) {
+      <div role="alert">
+        <p>{{ 'teamActions.loadError' | transloco }}</p>
+        <button type="button" (click)="loadActions()">{{ 'teamActions.retry' | transloco }}</button>
+      </div>
+    } @else if (actions().length === 0) {
+      <p>{{ 'teamActions.empty' | transloco }}</p>
+    } @else {
+      <table class="team-actions__table">
+        <thead>
+          <tr>
+            <th scope="col">{{ 'teamActions.columns.title' | transloco }}</th>
+            <th scope="col">{{ 'teamActions.columns.owner' | transloco }}</th>
+            <th scope="col">{{ 'teamActions.columns.dueDate' | transloco }}</th>
+            <th scope="col">{{ 'teamActions.columns.status' | transloco }}</th>
+            <th scope="col">{{ 'teamActions.columns.sourceCard' | transloco }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (action of actions(); track action.id) {
+            <tr>
+              <td>{{ action.title }}</td>
+              <td>{{ ownerDisplayName(action.ownerUserId) ?? ('teamActions.unknownOwner' | transloco) }}</td>
+              <td>{{ action.dueDate ?? ('teamActions.noDueDate' | transloco) }}</td>
+              <td>
+                <label class="team-actions__sr-only" [for]="'action-status-' + action.id">
+                  {{ 'teamActions.statusChangeLabel' | transloco : { title: action.title } }}
+                </label>
+                <select
+                  [id]="'action-status-' + action.id"
+                  [value]="action.status"
+                  [disabled]="updatingActionId() === action.id"
+                  (change)="onStatusChange(action, $any($event.target).value)"
+                >
+                  @for (status of allStatuses; track status) {
+                    <option [value]="status">{{ 'teamActions.status.' + status | transloco }}</option>
+                  }
+                </select>
+                @if (statusUpdateErrorId() === action.id) {
+                  <p class="team-actions__error" role="alert">{{ 'teamActions.statusChangeError' | transloco }}</p>
+                }
+              </td>
+              <td>{{ action.sourceCardId ? ('teamActions.fromCard' | transloco) : '' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+</section>
