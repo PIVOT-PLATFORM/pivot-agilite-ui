@@ -137,6 +137,54 @@
         "columnAdded": "Column {{position}} added.",
         "columnRemoved": "Column {{position}} removed."
       }
+    },
+    "sessionRoom": {
+      "title": "Retrospective room",
+      "joining": "Joining the room…",
+      "wsStatus": {
+        "connecting": "Connecting to the realtime room…",
+        "connected": "Connected to the realtime room.",
+        "error": "Could not connect to the realtime room."
+      },
+      "phase": {
+        "CONTRIBUTION": "Phase: Contribution",
+        "REVUE": "Phase: Review",
+        "VOTE": "Phase: Vote",
+        "ACTION": "Phase: Action",
+        "CLOSED": "Session closed"
+      },
+      "timeRemaining": "Time remaining: {{seconds}}s",
+      "fallbackNote": "Shown columns are provisional (format catalogue unavailable).",
+      "closeContributionNow": "Close contribution now",
+      "triggerReveal": "Reveal cards",
+      "submitAnonymously": "Submit anonymously",
+      "noCards": "No cards yet.",
+      "facilitatorPreview": "Facilitator preview (content in clear before reveal)",
+      "submitFormLabel": "Submit a card in column {{column}}",
+      "cardInputLabel": "Card content",
+      "submit": "Submit",
+      "maskedCount": "{{count}} card(s) submitted",
+      "error": {
+        "notFound": "Session not found.",
+        "expired": "This session has expired or is closed.",
+        "generic": "An error occurred. Please try again.",
+        "actionFailed": "The action failed. Please try again."
+      },
+      "fallbackColumns": {
+        "start": "Start",
+        "stop": "Stop",
+        "continue": "Continue",
+        "kif": "Kif",
+        "kaf": "Kaf",
+        "liked": "Liked",
+        "learned": "Learned",
+        "lacked": "Lacked",
+        "longedFor": "Longed for",
+        "mad": "Mad",
+        "sad": "Sad",
+        "glad": "Glad",
+        "general": "General"
+      }
     }
   },
   "scrumPoker": {
