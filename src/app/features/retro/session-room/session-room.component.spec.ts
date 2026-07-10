@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { Subject, of, throwError } from 'rxjs';
@@ -22,6 +22,9 @@ const NON_FACILITATOR_GRANT: RetroParticipantAccessResponse = {
   topicDestination: `/topic/agilite/retro/${SESSION_ID}`,
   facilitatorTopicDestination: null,
   submitDestination: `/app/agilite/retro/${SESSION_ID}/cards`,
+  voteDestination: `/app/agilite/retro/${SESSION_ID}/votes`,
+  voteUncastDestination: `/app/agilite/retro/${SESSION_ID}/votes/uncast`,
+  voteBalanceDestination: `/app/agilite/retro/${SESSION_ID}/votes/balance`,
 };
 
 const FACILITATOR_GRANT: RetroParticipantAccessResponse = {
@@ -36,12 +39,18 @@ describe('SessionRoomComponent', () => {
   let listFormatsSpy: ReturnType<typeof vi.fn>;
   let closeContributionSpy: ReturnType<typeof vi.fn>;
   let revealSpy: ReturnType<typeof vi.fn>;
+  let openVoteSpy: ReturnType<typeof vi.fn>;
+  let closeVoteSpy: ReturnType<typeof vi.fn>;
   let wsConnectSpy: ReturnType<typeof vi.fn>;
   let wsDisconnectSpy: ReturnType<typeof vi.fn>;
   let wsSubmitCardSpy: ReturnType<typeof vi.fn>;
+  let wsCastVoteSpy: ReturnType<typeof vi.fn>;
+  let wsUncastVoteSpy: ReturnType<typeof vi.fn>;
+  let wsQueryVoteBalanceSpy: ReturnType<typeof vi.fn>;
   let wsStatusSignal: ReturnType<typeof signal<RetroConnectionStatus>>;
   let topicMessages$: Subject<string>;
   let facilitatorMessages$: Subject<string>;
+  let voteBalanceMessages$: Subject<string>;
 
   const formatsResponse: RetroFormatsResponse = {
     formats: [
@@ -86,12 +95,18 @@ describe('SessionRoomComponent', () => {
     revealSpy = vi.fn().mockReturnValue(
       of({ sessionId: SESSION_ID, cardCount: 1, columns: { 'went-well': [{ id: 'card-1', content: 'Great job' }] } }),
     );
+    openVoteSpy = vi.fn().mockReturnValue(of({ currentPhase: 'VOTE' }));
+    closeVoteSpy = vi.fn().mockReturnValue(of({ currentPhase: 'ACTION' }));
     wsConnectSpy = vi.fn();
     wsDisconnectSpy = vi.fn();
     wsSubmitCardSpy = vi.fn();
+    wsCastVoteSpy = vi.fn();
+    wsUncastVoteSpy = vi.fn();
+    wsQueryVoteBalanceSpy = vi.fn();
     wsStatusSignal = signal<RetroConnectionStatus>('connecting');
     topicMessages$ = new Subject<string>();
     facilitatorMessages$ = new Subject<string>();
+    voteBalanceMessages$ = new Subject<string>();
 
     TestBed.configureTestingModule({
       imports: [SessionRoomComponent, TranslocoTestingModule.forRoot({ langs: { fr: {}, en: {} } })],
@@ -104,6 +119,8 @@ describe('SessionRoomComponent', () => {
             listFormats: listFormatsSpy,
             closeContribution: closeContributionSpy,
             reveal: revealSpy,
+            openVote: openVoteSpy,
+            closeVote: closeVoteSpy,
           },
         },
         {
@@ -113,8 +130,12 @@ describe('SessionRoomComponent', () => {
             connect: wsConnectSpy,
             disconnect: wsDisconnectSpy,
             submitCard: wsSubmitCardSpy,
+            castVote: wsCastVoteSpy,
+            uncastVote: wsUncastVoteSpy,
+            queryVoteBalance: wsQueryVoteBalanceSpy,
             topicMessages$,
             facilitatorMessages$,
+            voteBalanceMessages$,
           },
         },
         {
@@ -137,12 +158,7 @@ describe('SessionRoomComponent', () => {
     fixture.detectChanges();
 
     expect(joinSpy).toHaveBeenCalledWith(SESSION_ID);
-    expect(wsConnectSpy).toHaveBeenCalledWith(
-      FACILITATOR_GRANT.topicDestination,
-      FACILITATOR_GRANT.accessToken,
-      FACILITATOR_GRANT.submitDestination,
-      FACILITATOR_GRANT.facilitatorTopicDestination,
-    );
+    expect(wsConnectSpy).toHaveBeenCalledWith(FACILITATOR_GRANT);
   });
 
   /**
@@ -436,5 +452,314 @@ describe('SessionRoomComponent', () => {
 
     expect(joinSpy).not.toHaveBeenCalled();
     expect(fixture.nativeElement.textContent).toContain('notFound');
+  });
+
+  // ── Vote phase (US20.1.2b) ──
+
+  function moveToVote(fixture: ComponentFixture<SessionRoomComponent>): void {
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'PHASE_CHANGED',
+        sessionId: SESSION_ID,
+        previousPhase: 'REVUE',
+        currentPhase: 'VOTE',
+        changedAt: '2026-07-10T12:00:00Z',
+        rankedCards: null,
+      }),
+    );
+    fixture.detectChanges();
+  }
+
+  it('updates the aggregate vote count from a VOTE_CAST event, never exposing voter identity', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    topicMessages$.next(JSON.stringify({ type: 'VOTE_CAST', sessionId: SESSION_ID, cardId: 'card-1', voteCount: 4 }));
+
+    const component = fixture.componentInstance as unknown as { voteCountFor: (id: string) => number };
+    expect(component.voteCountFor('card-1')).toBe(4);
+  });
+
+  it('updates the aggregate vote count from a VOTE_UNCAST event', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    topicMessages$.next(JSON.stringify({ type: 'VOTE_CAST', sessionId: SESSION_ID, cardId: 'card-1', voteCount: 4 }));
+    topicMessages$.next(JSON.stringify({ type: 'VOTE_UNCAST', sessionId: SESSION_ID, cardId: 'card-1', voteCount: 3 }));
+
+    const component = fixture.componentInstance as unknown as { voteCountFor: (id: string) => number };
+    expect(component.voteCountFor('card-1')).toBe(3);
+  });
+
+  it('queries the vote balance automatically when PHASE_CHANGED transitions into VOTE', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    moveToVote(fixture);
+
+    expect(wsQueryVoteBalanceSpy).toHaveBeenCalled();
+  });
+
+  it('queries the vote balance immediately when session detail loads with currentPhase VOTE (join mid-vote)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    getByIdSpy.mockReturnValue(of({ ...sessionDetail, currentPhase: 'VOTE' }));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(wsQueryVoteBalanceSpy).toHaveBeenCalled();
+  });
+
+  it('applies the vote-count ranking and switches to the ranked view on PHASE_CHANGED (VOTE → ACTION)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'PHASE_CHANGED',
+        sessionId: SESSION_ID,
+        previousPhase: 'VOTE',
+        currentPhase: 'ACTION',
+        changedAt: '2026-07-10T12:05:00Z',
+        rankedCards: [
+          { cardId: 'card-1', columnKey: 'went-well', content: 'Great job', voteCount: 5 },
+          { cardId: 'card-2', columnKey: 'to-improve', content: 'Slow reviews', voteCount: 2 },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { rankedCards: () => unknown };
+    expect(component.rankedCards()).toEqual([
+      { cardId: 'card-1', columnKey: 'went-well', content: 'Great job', voteCount: 5 },
+      { cardId: 'card-2', columnKey: 'to-improve', content: 'Slow reviews', voteCount: 2 },
+    ]);
+    expect(fixture.nativeElement.textContent).toContain('Great job');
+    expect(fixture.nativeElement.textContent).toContain('Slow reviews');
+  });
+
+  it('does not populate rankedCards for a PHASE_CHANGED transition without a ranking', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'PHASE_CHANGED',
+        sessionId: SESSION_ID,
+        previousPhase: 'CONTRIBUTION',
+        currentPhase: 'REVUE',
+        changedAt: '2026-07-10T12:00:00Z',
+        rankedCards: null,
+      }),
+    );
+
+    const component = fixture.componentInstance as unknown as { rankedCards: () => unknown };
+    expect(component.rankedCards()).toBeNull();
+  });
+
+  it('castVote() no-ops when the phase is not VOTE', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { castVote: (id: string) => void };
+    component.castVote('card-1');
+
+    expect(wsCastVoteSpy).not.toHaveBeenCalled();
+  });
+
+  it("castVote() publishes over the WS, optimistically increments the caller's own count, and decrements votesRemaining", () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToVote(fixture);
+    voteBalanceMessages$.next(
+      JSON.stringify({ type: 'VOTE_BALANCE', sessionId: SESSION_ID, votesRemaining: 3, votesAllowed: 3 }),
+    );
+
+    const component = fixture.componentInstance as unknown as {
+      castVote: (id: string) => void;
+      myVoteCountFor: (id: string) => number;
+      votesRemaining: () => number | null;
+    };
+    component.castVote('card-1');
+
+    expect(wsCastVoteSpy).toHaveBeenCalledWith('card-1');
+    expect(component.myVoteCountFor('card-1')).toBe(1);
+    expect(component.votesRemaining()).toBe(2);
+  });
+
+  it('castVote() no-ops once the known balance is exhausted', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToVote(fixture);
+    voteBalanceMessages$.next(
+      JSON.stringify({ type: 'VOTE_BALANCE', sessionId: SESSION_ID, votesRemaining: 0, votesAllowed: 3 }),
+    );
+
+    const component = fixture.componentInstance as unknown as { castVote: (id: string) => void };
+    component.castVote('card-1');
+
+    expect(wsCastVoteSpy).not.toHaveBeenCalled();
+  });
+
+  it('uncastVote() publishes over the WS, decrements the local count, and increments votesRemaining back (capped at votesAllowed)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToVote(fixture);
+    voteBalanceMessages$.next(
+      JSON.stringify({ type: 'VOTE_BALANCE', sessionId: SESSION_ID, votesRemaining: 3, votesAllowed: 3 }),
+    );
+
+    const component = fixture.componentInstance as unknown as {
+      castVote: (id: string) => void;
+      uncastVote: (id: string) => void;
+      myVoteCountFor: (id: string) => number;
+      votesRemaining: () => number | null;
+    };
+    component.castVote('card-1');
+    component.uncastVote('card-1');
+
+    expect(wsUncastVoteSpy).toHaveBeenCalledWith('card-1');
+    expect(component.myVoteCountFor('card-1')).toBe(0);
+    expect(component.votesRemaining()).toBe(3);
+  });
+
+  it('uncastVote() no-ops when the caller has no locally-tracked vote on this card', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToVote(fixture);
+
+    const component = fixture.componentInstance as unknown as { uncastVote: (id: string) => void };
+    component.uncastVote('card-1');
+
+    expect(wsUncastVoteSpy).not.toHaveBeenCalled();
+  });
+
+  it('ignores an unparseable frame on the vote-balance queue without throwing', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(() => voteBalanceMessages$.next('not-json')).not.toThrow();
+  });
+
+  it('renders per-card vote controls in VOTE phase and casts a vote via a real DOM click', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'CARDS_REVEALED',
+        sessionId: SESSION_ID,
+        columns: { 'went-well': [{ id: 'card-1', content: 'Great job' }] },
+      }),
+    );
+    moveToVote(fixture);
+    voteBalanceMessages$.next(
+      JSON.stringify({ type: 'VOTE_BALANCE', sessionId: SESSION_ID, votesRemaining: 2, votesAllowed: 2 }),
+    );
+    fixture.detectChanges();
+
+    const castButton = fixture.nativeElement.querySelector('.session-room__vote-button') as HTMLButtonElement;
+    expect(castButton).toBeTruthy();
+    expect(castButton.disabled).toBe(false);
+    castButton.click();
+
+    expect(wsCastVoteSpy).toHaveBeenCalledWith('card-1');
+  });
+
+  it('facilitator: shows the open-vote control only once cards have been revealed in REVUE', () => {
+    configure(FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('openVoteNow');
+
+    const component = fixture.componentInstance as unknown as { triggerReveal: () => void };
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'PHASE_CHANGED',
+        sessionId: SESSION_ID,
+        previousPhase: 'CONTRIBUTION',
+        currentPhase: 'REVUE',
+        changedAt: '2026-07-10T12:00:00Z',
+        rankedCards: null,
+      }),
+    );
+    fixture.detectChanges();
+    component.triggerReveal();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('openVoteNow');
+  });
+
+  it('facilitator: shows the close-vote control while the session is in VOTE', () => {
+    configure(FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    moveToVote(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('closeVoteNow');
+  });
+
+  it('facilitator: openVoteNow() calls the API, updates the phase, and queries the vote balance', () => {
+    configure(FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { openVoteNow: () => void; phase: () => string };
+    component.openVoteNow();
+
+    expect(openVoteSpy).toHaveBeenCalledWith(SESSION_ID);
+    expect(component.phase()).toBe('VOTE');
+    expect(wsQueryVoteBalanceSpy).toHaveBeenCalled();
+  });
+
+  it('surfaces an error when openVoteNow() fails', () => {
+    configure(FACILITATOR_GRANT);
+    openVoteSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { openVoteNow: () => void };
+    component.openVoteNow();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('actionFailed');
+  });
+
+  it('facilitator: closeVoteNow() calls the API and updates the phase', () => {
+    configure(FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { closeVoteNow: () => void; phase: () => string };
+    component.closeVoteNow();
+
+    expect(closeVoteSpy).toHaveBeenCalledWith(SESSION_ID);
+    expect(component.phase()).toBe('ACTION');
+  });
+
+  it('surfaces an error when closeVoteNow() fails', () => {
+    configure(FACILITATOR_GRANT);
+    closeVoteSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { closeVoteNow: () => void };
+    component.closeVoteNow();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('actionFailed');
   });
 });
