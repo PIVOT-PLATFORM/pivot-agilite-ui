@@ -11,11 +11,13 @@ import {
   CreateRetroFormatRequest,
   CreateRetroSessionRequest,
   OpenVoteResponse,
+  RetroActionResponse,
   RetroFormatDefinition,
   RetroFormatsResponse,
   RetroParticipantAccessResponse,
   RetroSessionJoinResponse,
   RetroSessionResponse,
+  RetroTeamMemberResponse,
   RevealResponse,
 } from './retro.models';
 
@@ -558,20 +560,42 @@ describe('RetroApiService', () => {
       sourceCardId: 'card-1',
     };
 
-    it('POSTs to /retro/sessions/{id}/actions with the exact request body', () => {
-      let result: unknown;
+    const response: RetroActionResponse = {
+      id: 'action-1',
+      sessionId,
+      teamId: 42,
+      title: 'Great job',
+      ownerUserId: null,
+      dueDate: null,
+      sourceCardId: 'card-1',
+      status: 'A_FAIRE',
+    };
+
+    it('POSTs to /retro/sessions/{id}/actions with the exact request body and returns the created action', () => {
+      let result: RetroActionResponse | undefined;
 
       service.createAction(sessionId, request).subscribe(r => (result = r));
 
       const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`);
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual(request);
-      req.flush({ id: 'action-1' }, { status: 201, statusText: 'Created' });
+      req.flush(response, { status: 201, statusText: 'Created' });
 
-      expect(result).toEqual({ id: 'action-1' });
+      expect(result).toEqual(response);
     });
 
-    it('propagates a 404 error (US20.3.1 endpoint not yet built server-side)', () => {
+    it('propagates a 400 error (invalid ownerUserId or sourceCardId)', () => {
+      let error: unknown;
+
+      service.createAction(sessionId, request).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`);
+      req.flush({ title: 'Bad Request', status: 400 }, { status: 400, statusText: 'Bad Request' });
+
+      expect((error as { status: number }).status).toBe(400);
+    });
+
+    it('propagates a 404 error (unknown session or belongs to another tenant)', () => {
       let error: unknown;
 
       service.createAction(sessionId, request).subscribe({ error: e => (error = e) });
@@ -580,6 +604,145 @@ describe('RetroApiService', () => {
       req.flush({ title: 'Not Found', status: 404 }, { status: 404, statusText: 'Not Found' });
 
       expect((error as { status: number }).status).toBe(404);
+    });
+
+    it('propagates a 409 error (session not currently in ACTION)', () => {
+      let error: unknown;
+
+      service.createAction(sessionId, request).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`);
+      req.flush({ title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
+
+      expect((error as { status: number }).status).toBe(409);
+    });
+  });
+
+  describe('updateActionStatus', () => {
+    const actionId = 'action-1';
+    const response: RetroActionResponse = {
+      id: actionId,
+      sessionId: '11111111-1111-1111-1111-111111111111',
+      teamId: 42,
+      title: 'Great job',
+      ownerUserId: null,
+      dueDate: null,
+      sourceCardId: 'card-1',
+      status: 'EN_COURS',
+    };
+
+    it('PATCHes /retro/actions/{actionId} with the new status and returns the updated action', () => {
+      let result: RetroActionResponse | undefined;
+
+      service.updateActionStatus(actionId, { status: 'EN_COURS' }).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/actions/${actionId}`);
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual({ status: 'EN_COURS' });
+      req.flush(response);
+
+      expect(result).toEqual(response);
+    });
+
+    it('allows reopening an ABANDONNEE action (no strict state machine)', () => {
+      let result: RetroActionResponse | undefined;
+
+      service.updateActionStatus(actionId, { status: 'A_FAIRE' }).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/actions/${actionId}`);
+      req.flush({ ...response, status: 'A_FAIRE' });
+
+      expect(result?.status).toBe('A_FAIRE');
+    });
+
+    it('propagates a 404 error (unknown action or belongs to another tenant)', () => {
+      let error: unknown;
+
+      service.updateActionStatus(actionId, { status: 'TERMINEE' }).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/actions/${actionId}`);
+      req.flush({ title: 'Not Found', status: 404 }, { status: 404, statusText: 'Not Found' });
+
+      expect((error as { status: number }).status).toBe(404);
+    });
+  });
+
+  describe('listTeamActions', () => {
+    const teamId = 42;
+    const response: RetroActionResponse[] = [
+      {
+        id: 'action-1',
+        sessionId: '11111111-1111-1111-1111-111111111111',
+        teamId,
+        title: 'Great job',
+        ownerUserId: 7,
+        dueDate: '2026-07-20',
+        sourceCardId: 'card-1',
+        status: 'A_FAIRE',
+      },
+    ];
+
+    it('GETs /retro/teams/{teamId}/actions with no query params when no filter is given', () => {
+      let result: RetroActionResponse[] | undefined;
+
+      service.listTeamActions(teamId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/teams/${teamId}/actions`);
+      expect(req.request.method).toBe('GET');
+      expect(req.request.params.keys()).toEqual([]);
+      req.flush(response);
+
+      expect(result).toEqual(response);
+    });
+
+    it('GETs with status and sort query params when both are given', () => {
+      service.listTeamActions(teamId, { status: 'EN_COURS', sort: '-dueDate' }).subscribe();
+
+      const req = httpMock.expectOne(
+        r => r.url === `${environment.apiUrl}/retro/teams/${teamId}/actions`,
+      );
+      expect(req.request.params.get('status')).toBe('EN_COURS');
+      expect(req.request.params.get('sort')).toBe('-dueDate');
+      req.flush(response);
+    });
+
+    it('propagates a 403 error (caller not a team member)', () => {
+      let error: unknown;
+
+      service.listTeamActions(teamId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/teams/${teamId}/actions`);
+      req.flush({ title: 'Forbidden', status: 403 }, { status: 403, statusText: 'Forbidden' });
+
+      expect((error as { status: number }).status).toBe(403);
+    });
+  });
+
+  describe('listTeamMembers', () => {
+    const teamId = 42;
+    const response: RetroTeamMemberResponse[] = [{ id: 1, userId: 7, displayName: 'Alex' }];
+
+    it('GETs /teams/{teamId}/members and returns the team members', () => {
+      let result: RetroTeamMemberResponse[] | undefined;
+
+      service.listTeamMembers(teamId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/teams/${teamId}/members`);
+      expect(req.request.method).toBe('GET');
+      req.flush(response);
+
+      expect(result).toEqual(response);
+    });
+
+    it('propagates a 401 error (expected in this bootstrap phase — no bearer token attached)', () => {
+      let error: unknown;
+
+      service.listTeamMembers(teamId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/teams/${teamId}/members`);
+      req.flush({ title: 'Unauthorized', status: 401 }, { status: 401, statusText: 'Unauthorized' });
+
+      expect((error as { status: number }).status).toBe(401);
     });
   });
 });
