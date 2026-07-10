@@ -3,8 +3,9 @@ import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { Subscription, interval, switchMap } from 'rxjs';
-import { AnonymousJoinResponse, JoinRoomResponse, ProblemDetailResponse } from '../room.model';
+import { RoomBoardComponent } from '../room-board/room-board.component';
 import { RoomWsService } from '../room-ws.service';
+import { AnonymousJoinResponse, JoinRoomResponse, ProblemDetailResponse } from '../room.model';
 import { RoomService } from '../room.service';
 
 /** Exact invite code length accepted by the backend (US09.1.1's `InviteCodeGenerator`). */
@@ -36,7 +37,7 @@ export type JoinMode = 'authenticated' | 'anonymous';
   selector: 'app-join-room',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, TranslocoPipe],
+  imports: [ReactiveFormsModule, TranslocoPipe, RoomBoardComponent],
   templateUrl: './join-room.component.html',
   styleUrl: './join-room.component.scss',
 })
@@ -116,7 +117,7 @@ export class JoinRoomComponent implements OnDestroy {
       next: (room) => {
         this.submitting.set(false);
         this.joinedRoom.set(room);
-        this.roomWs.connect(room.wsTopic, room.accessToken);
+        this.roomWs.connect(room.wsTopic, room.accessToken, room.roomId);
       },
       error: (error: HttpErrorResponse) => {
         this.submitting.set(false);
@@ -151,7 +152,7 @@ export class JoinRoomComponent implements OnDestroy {
         next: (room) => {
           this.anonymousSubmitting.set(false);
           this.joinedAnonymousRoom.set(room);
-          this.roomWs.connect(room.wsTopic, room.accessToken);
+          this.roomWs.connect(room.wsTopic, room.accessToken, room.roomId);
           this.startHeartbeat(room);
         },
         error: (error: HttpErrorResponse) => {

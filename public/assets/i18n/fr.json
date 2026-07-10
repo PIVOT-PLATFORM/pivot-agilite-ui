@@ -256,6 +256,24 @@
         "sessionExpired": "Votre session invité a expiré. Merci de rejoindre à nouveau.",
         "generic": "Une erreur est survenue. Veuillez réessayer."
       }
+    },
+    "roomBoard": {
+      "heading": "Ticket en cours",
+      "ticketTitleLabel": "Titre du ticket",
+      "ticketTitleRequired": "Le titre du ticket est requis.",
+      "ticketTitleTooLong": "Le titre ne doit pas dépasser 200 caractères.",
+      "createTicket": "Créer le ticket",
+      "creatingTicket": "Création en cours…",
+      "cardsLabel": "Cartes de vote",
+      "votedCounter": "{{voted}}/{{total}} ont voté",
+      "waitingForTicket": "En attente d'un ticket créé par le facilitateur…",
+      "errors": {
+        "facilitatorOnly": "Seul le facilitateur de la room peut créer un ticket.",
+        "activeTicketExists": "Un ticket est déjà en cours de vote dans cette room.",
+        "invalidTitle": "Le titre du ticket est invalide.",
+        "invalidRequest": "La demande est invalide. Vérifiez le titre du ticket.",
+        "generic": "Une erreur est survenue. Veuillez réessayer."
+      }
     }
   }
 }

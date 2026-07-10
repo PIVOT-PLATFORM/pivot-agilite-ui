@@ -25,6 +25,13 @@ export interface RoomResponse {
   readonly expiresAt: string;
   /** STOMP destination this room's participants subscribe to (ADR-026 §2, US09.1.2). */
   readonly wsTopic: string;
+  /**
+   * The facilitator's own room-scoped WebSocket access token (US09.2.1) — present only on the
+   * `POST` (creation) response, `undefined`/absent on `GET`. Lets the facilitator open the same
+   * STOMP link as a joining participant ({@link RoomWsService}) without a separate join-by-code
+   * round trip against their own room.
+   */
+  readonly accessToken?: string;
 }
 
 /**

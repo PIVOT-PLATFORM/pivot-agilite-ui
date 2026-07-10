@@ -31,6 +31,12 @@
         </p>
       }
 
+      <p class="create-room__ws-status" role="status" aria-live="polite">
+        {{ 'scrumPoker.joinRoom.wsStatus.' + roomWs.status() | transloco }}
+      </p>
+
+      <app-room-board [roomId]="room.id.toString()" [cardValues]="room.cardValues" [isFacilitator]="true" />
+
       <button type="button" class="create-room__another" (click)="createAnother()">
         {{ 'scrumPoker.createRoom.createAnother' | transloco }}
       </button>

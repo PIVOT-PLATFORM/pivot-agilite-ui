@@ -1,0 +1,76 @@
+<section class="room-board" aria-labelledby="room-board-heading">
+  <h2 id="room-board-heading">{{ 'scrumPoker.roomBoard.heading' | transloco }}</h2>
+
+  @if (isFacilitator() && !currentTicket()) {
+    <form class="room-board__create-ticket" [formGroup]="titleForm" (ngSubmit)="createTicket()" novalidate>
+      <div class="room-board__field">
+        <label class="room-board__label" for="ticket-title">
+          {{ 'scrumPoker.roomBoard.ticketTitleLabel' | transloco }}
+        </label>
+        <input
+          id="ticket-title"
+          class="room-board__input"
+          type="text"
+          formControlName="title"
+          [attr.aria-invalid]="titleForm.controls.title.invalid && titleForm.controls.title.touched"
+          [attr.aria-describedby]="
+            titleForm.controls.title.invalid && titleForm.controls.title.touched ? 'ticket-title-error' : null
+          "
+        />
+        @if (titleForm.controls.title.invalid && titleForm.controls.title.touched) {
+          <p id="ticket-title-error" class="room-board__error" role="alert">
+            @if (titleForm.controls.title.hasError('required')) {
+              {{ 'scrumPoker.roomBoard.ticketTitleRequired' | transloco }}
+            } @else if (titleForm.controls.title.hasError('maxlength')) {
+              {{ 'scrumPoker.roomBoard.ticketTitleTooLong' | transloco }}
+            }
+          </p>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="room-board__create-submit"
+        [disabled]="creatingTicket()"
+        [attr.aria-busy]="creatingTicket()"
+      >
+        {{
+          (creatingTicket() ? 'scrumPoker.roomBoard.creatingTicket' : 'scrumPoker.roomBoard.createTicket')
+            | transloco
+        }}
+      </button>
+
+      @if (createTicketErrorKey(); as errorKey) {
+        <p class="room-board__error" role="alert">{{ errorKey | transloco }}</p>
+      }
+    </form>
+  }
+
+  @if (currentTicket(); as ticket) {
+    <div class="room-board__active-ticket">
+      <h3 class="room-board__ticket-title">{{ ticket.title }}</h3>
+
+      <div class="room-board__cards" role="group" [attr.aria-label]="'scrumPoker.roomBoard.cardsLabel' | transloco">
+        @for (value of cardValues(); track value) {
+          <button
+            type="button"
+            class="room-board__card"
+            [class.room-board__card--selected]="selectedValue() === value"
+            [attr.aria-pressed]="selectedValue() === value"
+            (click)="selectCard(value)"
+          >
+            {{ value }}
+          </button>
+        }
+      </div>
+
+      <p class="room-board__counter" role="status" aria-live="polite">
+        {{ 'scrumPoker.roomBoard.votedCounter' | transloco: counterParams() }}
+      </p>
+    </div>
+  } @else if (!isFacilitator()) {
+    <p class="room-board__waiting" role="status" aria-live="polite">
+      {{ 'scrumPoker.roomBoard.waitingForTicket' | transloco }}
+    </p>
+  }
+</section>
