@@ -284,8 +284,18 @@
         "activeTicketExists": "A ticket is already being voted on in this room.",
         "invalidTitle": "The ticket title is invalid.",
         "invalidRequest": "The request is invalid. Check the ticket title.",
-        "generic": "Something went wrong. Please try again."
-      }
+        "generic": "Something went wrong. Please try again.",
+        "ticketNotFound": "This ticket could not be found.",
+        "ticketAlreadyRevealed": "This ticket has already been revealed."
+      },
+      "reveal": "Reveal votes",
+      "revealing": "Revealing…",
+      "revealedHeading": "Revealed votes",
+      "revealedValuesLabel": "Revealed cards",
+      "consensusMean": "Mean",
+      "consensusMedian": "Median",
+      "consensusMajority": "Majority value",
+      "noNumericConsensus": "No numeric consensus"
     }
   }
 }

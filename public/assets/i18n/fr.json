@@ -284,8 +284,18 @@
         "activeTicketExists": "Un ticket est déjà en cours de vote dans cette room.",
         "invalidTitle": "Le titre du ticket est invalide.",
         "invalidRequest": "La demande est invalide. Vérifiez le titre du ticket.",
-        "generic": "Une erreur est survenue. Veuillez réessayer."
-      }
+        "generic": "Une erreur est survenue. Veuillez réessayer.",
+        "ticketNotFound": "Ce ticket est introuvable.",
+        "ticketAlreadyRevealed": "Ce ticket a déjà été révélé."
+      },
+      "reveal": "Révéler les votes",
+      "revealing": "Révélation en cours…",
+      "revealedHeading": "Votes révélés",
+      "revealedValuesLabel": "Cartes révélées",
+      "consensusMean": "Moyenne",
+      "consensusMedian": "Médiane",
+      "consensusMajority": "Valeur majoritaire",
+      "noNumericConsensus": "Pas de consensus numérique"
     }
   }
 }

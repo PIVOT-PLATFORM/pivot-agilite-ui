@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
-import { TicketResponse } from './ticket.model';
+import { RevealResponse, TicketResponse } from './ticket.model';
 import { TicketService } from './ticket.service';
 
 describe('TicketService', () => {
@@ -109,5 +109,47 @@ describe('TicketService', () => {
     req.flush(null);
 
     expect(result).toBeNull();
+  });
+
+  /**
+   * Given a room id and ticket id, when revealTicket() is called, then it POSTs to
+   * poker/rooms/{roomId}/tickets/{ticketId}/reveal with no body and resolves with the reveal
+   * response (revealed ticket, raw values, consensus).
+   */
+  it('revealTicket() posts to poker/rooms/{roomId}/tickets/{ticketId}/reveal', () => {
+    const mockReveal: RevealResponse = {
+      id: 'ticket-1',
+      roomId: ROOM_ID,
+      title: 'Estimate JIRA-123',
+      status: 'REVEALED',
+      createdAt: '2026-07-10T10:00:00Z',
+      revealedAt: '2026-07-10T10:05:00Z',
+      values: ['5', '8', '5'],
+      consensus: { mean: 6, median: 5, majority: '5' },
+    };
+    let result: RevealResponse | undefined;
+    service.revealTicket(ROOM_ID, 'ticket-1').subscribe(r => (result = r));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/poker/rooms/${ROOM_ID}/tickets/ticket-1/reveal`);
+    expect(req.request.method).toBe('POST');
+    req.flush(mockReveal);
+
+    expect(result).toEqual(mockReveal);
+  });
+
+  /**
+   * Error case: given the backend rejects with 409 (ticket already revealed), when
+   * revealTicket() is called, then the observable errors with a 409 status and the
+   * TICKET_ALREADY_REVEALED code.
+   */
+  it('revealTicket() propagates a 409 TICKET_ALREADY_REVEALED error', () => {
+    let error: { status?: number; error?: unknown } | undefined;
+    service.revealTicket(ROOM_ID, 'ticket-1').subscribe({ error: err => (error = err) });
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/poker/rooms/${ROOM_ID}/tickets/ticket-1/reveal`);
+    req.flush({ code: 'TICKET_ALREADY_REVEALED' }, { status: 409, statusText: 'Conflict' });
+
+    expect(error?.status).toBe(409);
+    expect((error?.error as { code?: string })?.code).toBe('TICKET_ALREADY_REVEALED');
   });
 });

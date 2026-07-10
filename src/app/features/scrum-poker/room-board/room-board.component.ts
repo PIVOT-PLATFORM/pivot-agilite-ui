@@ -12,7 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { RoomWsService } from '../room-ws.service';
-import { RoomTopicEvent, TicketProblemDetail, TicketResponse } from '../ticket.model';
+import { ConsensusResponse, RoomTopicEvent, TicketProblemDetail, TicketResponse } from '../ticket.model';
 import { TicketService } from '../ticket.service';
 
 /** Maximum ticket title length accepted by the backend (US09.2.1). */
@@ -34,6 +34,12 @@ const TITLE_MAX_LENGTH = 200;
  * own highlighted card) is purely local UI state, never derived from anything the server sends
  * back; the server never echoes a chosen value to anyone, proven server-side by
  * `PokerVoteSubmissionIT`'s raw-payload inspection.
+ *
+ * Since US09.2.2, also handles **revealing** the current ticket (facilitator only, at any point
+ * while `VOTING` — no completeness gate) and rendering the resulting anonymous `values`/
+ * `consensus` (mean/median over the numeric subset, majority over every raw value including
+ * `"?"`), applied identically whether it arrives via the REST response or the `VOTES_REVEALED`
+ * broadcast.
  */
 @Component({
   selector: 'app-room-board',
@@ -82,6 +88,18 @@ export class RoomBoardComponent implements OnInit {
   /** i18n key of the current ticket-creation error, or `null` when there is none. */
   protected readonly createTicketErrorKey = signal<string | null>(null);
 
+  /** Every cast vote's raw value once the current ticket has been revealed (US09.2.2), else `null`. */
+  protected readonly revealedValues = signal<readonly string[] | null>(null);
+
+  /** The computed consensus once the current ticket has been revealed (US09.2.2), else `null`. */
+  protected readonly consensus = signal<ConsensusResponse | null>(null);
+
+  /** True while a reveal request is in flight — disables the reveal button. */
+  protected readonly revealing = signal(false);
+
+  /** i18n key of the current reveal error, or `null` when there is none. */
+  protected readonly revealErrorKey = signal<string | null>(null);
+
   ngOnInit(): void {
     this.roomWs.messages$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(body => this.onMessage(body));
     this.loadCurrentTicket();
@@ -122,11 +140,38 @@ export class RoomBoardComponent implements OnInit {
    */
   protected selectCard(value: string): void {
     const ticket = this.currentTicket();
-    if (!ticket) {
+    if (!ticket || ticket.status !== 'VOTING') {
       return;
     }
     this.selectedValue.set(value);
     this.roomWs.submitVote({ ticketId: ticket.id, value });
+  }
+
+  /**
+   * Reveals the current ticket's votes (facilitator only) — permitted at any point while the
+   * ticket is `VOTING`, regardless of {@link votedCount}/{@link totalParticipants} (no
+   * completeness gate, US09.2.2 AC). No-ops if no ticket is active or a request is already in
+   * flight.
+   */
+  protected revealVotes(): void {
+    const ticket = this.currentTicket();
+    if (!ticket || ticket.status !== 'VOTING' || this.revealing()) {
+      return;
+    }
+
+    this.revealing.set(true);
+    this.revealErrorKey.set(null);
+
+    this.ticketService.revealTicket(this.roomId(), ticket.id).subscribe({
+      next: reveal => {
+        this.revealing.set(false);
+        this.applyReveal(reveal.id, reveal.status, reveal.values, reveal.consensus);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.revealing.set(false);
+        this.revealErrorKey.set(this.resolveRevealErrorKey(error));
+      },
+    });
   }
 
   /** The masked "X/Y have voted" pair, for the template's parameterized translation. */
@@ -151,6 +196,35 @@ export class RoomBoardComponent implements OnInit {
     this.currentTicket.set(ticket);
     this.votedCount.set(0);
     this.selectedValue.set(null);
+    this.revealedValues.set(null);
+    this.consensus.set(null);
+    this.revealErrorKey.set(null);
+  }
+
+  /**
+   * Applies a revealed-votes state — called both from the REST reveal response and from the
+   * `VOTES_REVEALED` broadcast, idempotently (setting the same values twice, e.g. once from each
+   * source for the facilitator's own reveal, is harmless).
+   *
+   * @param ticketId  the revealed ticket's id — ignored if it does not match the currently
+   *                  displayed ticket (a stale/out-of-order event)
+   * @param status    the ticket's new status, always `"REVEALED"`
+   * @param values    every cast vote's raw value, anonymous
+   * @param consensus the computed consensus
+   */
+  private applyReveal(
+    ticketId: string,
+    status: TicketResponse['status'],
+    values: readonly string[],
+    consensus: ConsensusResponse,
+  ): void {
+    const ticket = this.currentTicket();
+    if (!ticket || ticket.id !== ticketId) {
+      return;
+    }
+    this.currentTicket.set({ ...ticket, status });
+    this.revealedValues.set(values);
+    this.consensus.set(consensus);
   }
 
   private onMessage(body: string): void {
@@ -174,6 +248,9 @@ export class RoomBoardComponent implements OnInit {
         this.votedCount.set(event.votedCount);
         this.totalParticipants.set(event.totalParticipants);
         break;
+      case 'VOTES_REVEALED':
+        this.applyReveal(event.ticketId, 'REVEALED', event.values, event.consensus);
+        break;
     }
   }
 
@@ -196,6 +273,25 @@ export class RoomBoardComponent implements OnInit {
         return 'scrumPoker.roomBoard.errors.invalidTitle';
       }
       return 'scrumPoker.roomBoard.errors.invalidRequest';
+    }
+    return 'scrumPoker.roomBoard.errors.generic';
+  }
+
+  /**
+   * Maps a reveal HTTP error to an i18n key, without leaking raw backend error text.
+   *
+   * @param error the HTTP error response
+   * @returns the i18n key describing the error
+   */
+  private resolveRevealErrorKey(error: HttpErrorResponse): string {
+    if (error.status === 403) {
+      return 'scrumPoker.roomBoard.errors.facilitatorOnly';
+    }
+    if (error.status === 404) {
+      return 'scrumPoker.roomBoard.errors.ticketNotFound';
+    }
+    if (error.status === 409) {
+      return 'scrumPoker.roomBoard.errors.ticketAlreadyRevealed';
     }
     return 'scrumPoker.roomBoard.errors.generic';
   }

@@ -1,7 +1,7 @@
 <section class="room-board" aria-labelledby="room-board-heading">
   <h2 id="room-board-heading">{{ 'scrumPoker.roomBoard.heading' | transloco }}</h2>
 
-  @if (isFacilitator() && !currentTicket()) {
+  @if (isFacilitator() && (!currentTicket() || currentTicket()?.status === 'REVEALED')) {
     <form class="room-board__create-ticket" [formGroup]="titleForm" (ngSubmit)="createTicket()" novalidate>
       <div class="room-board__field">
         <label class="room-board__label" for="ticket-title">
@@ -57,6 +57,7 @@
             class="room-board__card"
             [class.room-board__card--selected]="selectedValue() === value"
             [attr.aria-pressed]="selectedValue() === value"
+            [disabled]="ticket.status === 'REVEALED'"
             (click)="selectCard(value)"
           >
             {{ value }}
@@ -67,6 +68,45 @@
       <p class="room-board__counter" role="status" aria-live="polite">
         {{ 'scrumPoker.roomBoard.votedCounter' | transloco: counterParams() }}
       </p>
+
+      @if (isFacilitator() && ticket.status === 'VOTING') {
+        <button
+          type="button"
+          class="room-board__reveal"
+          [disabled]="revealing()"
+          [attr.aria-busy]="revealing()"
+          (click)="revealVotes()"
+        >
+          {{ (revealing() ? 'scrumPoker.roomBoard.revealing' : 'scrumPoker.roomBoard.reveal') | transloco }}
+        </button>
+
+        @if (revealErrorKey(); as errorKey) {
+          <p class="room-board__error" role="alert">{{ errorKey | transloco }}</p>
+        }
+      }
+
+      @if (ticket.status === 'REVEALED') {
+        <div class="room-board__revealed" role="status" aria-live="polite">
+          <h4 class="room-board__revealed-heading">{{ 'scrumPoker.roomBoard.revealedHeading' | transloco }}</h4>
+
+          <ul class="room-board__revealed-values" [attr.aria-label]="'scrumPoker.roomBoard.revealedValuesLabel' | transloco">
+            @for (value of revealedValues(); track $index) {
+              <li class="room-board__revealed-value">{{ value }}</li>
+            }
+          </ul>
+
+          @if (consensus(); as c) {
+            <dl class="room-board__consensus">
+              <dt>{{ 'scrumPoker.roomBoard.consensusMean' | transloco }}</dt>
+              <dd>{{ c.mean ?? ('scrumPoker.roomBoard.noNumericConsensus' | transloco) }}</dd>
+              <dt>{{ 'scrumPoker.roomBoard.consensusMedian' | transloco }}</dt>
+              <dd>{{ c.median ?? ('scrumPoker.roomBoard.noNumericConsensus' | transloco) }}</dd>
+              <dt>{{ 'scrumPoker.roomBoard.consensusMajority' | transloco }}</dt>
+              <dd>{{ c.majority ?? ('scrumPoker.roomBoard.noNumericConsensus' | transloco) }}</dd>
+            </dl>
+          }
+        </div>
+      }
     </div>
   } @else if (!isFacilitator()) {
     <p class="room-board__waiting" role="status" aria-live="polite">
