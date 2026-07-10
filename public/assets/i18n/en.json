@@ -199,7 +199,35 @@
       "action": {
         "createFromCard": "Create action",
         "createLabel": "Create an action from \"{{content}}\"",
-        "created": "Action created."
+        "created": "Action created.",
+        "status": {
+          "A_FAIRE": "To do",
+          "EN_COURS": "In progress",
+          "TERMINEE": "Done",
+          "ABANDONNEE": "Abandoned"
+        },
+        "form": {
+          "heading": "Create an action",
+          "titleLabel": "Title",
+          "ownerLabel": "Owner (optional)",
+          "ownerNone": "No owner",
+          "dueDateLabel": "Due date (optional)",
+          "sourceCardLabel": "Source card (optional)",
+          "sourceCardNone": "No source card",
+          "submit": "Create the action",
+          "submitting": "Creating…",
+          "error": {
+            "invalid": "The selected owner is not a team member, or the source card does not belong to this session.",
+            "sessionUnavailable": "Unable to create the action for this session.",
+            "wrongPhase": "Cannot create an action outside the Action phase.",
+            "generic": "An error occurred while creating the action. Please try again."
+          }
+        },
+        "list": {
+          "heading": "Actions from this session",
+          "ownerLabel": "Owner: {{owner}}",
+          "dueDateLabel": "Due date: {{dueDate}}"
+        }
       },
       "error": {
         "notFound": "Session not found.",
@@ -221,7 +249,8 @@
         "sad": "Sad",
         "glad": "Glad",
         "general": "General"
-      }
+      },
+      "viewTeamActions": "View the team's actions"
     }
   },
   "scrumPoker": {
@@ -304,5 +333,36 @@
       "consensusMajority": "Majority value",
       "noNumericConsensus": "No numeric consensus"
     }
+  },
+  "teamActions": {
+    "title": "Team actions",
+    "filterLabel": "Filter by status",
+    "filterAll": "All statuses",
+    "status": {
+      "A_FAIRE": "To do",
+      "EN_COURS": "In progress",
+      "TERMINEE": "Done",
+      "ABANDONNEE": "Abandoned"
+    },
+    "sortLabel": "Sort by due date",
+    "sortAscending": "Due date ascending",
+    "sortDescending": "Due date descending",
+    "columns": {
+      "title": "Title",
+      "owner": "Owner",
+      "dueDate": "Due date",
+      "status": "Status",
+      "sourceCard": "Source card"
+    },
+    "noDueDate": "No due date",
+    "unknownOwner": "Unassigned",
+    "fromCard": "From a retrospective card",
+    "loading": "Loading actions…",
+    "loadError": "Unable to load this team's actions.",
+    "retry": "Retry",
+    "empty": "No actions for this team.",
+    "statusChangeLabel": "Change the status of \"{{title}}\"",
+    "statusChangeError": "The status change failed. Please try again.",
+    "missingTeamId": "Missing team id."
   }
 }

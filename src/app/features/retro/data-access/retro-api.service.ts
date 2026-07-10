@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
@@ -10,12 +10,17 @@ import {
   CreateRetroFormatRequest,
   CreateRetroSessionRequest,
   OpenVoteResponse,
+  RetroActionResponse,
+  RetroActionSort,
+  RetroActionStatus,
   RetroFormatDefinition,
   RetroFormatsResponse,
   RetroParticipantAccessResponse,
   RetroSessionJoinResponse,
   RetroSessionResponse,
+  RetroTeamMemberResponse,
   RevealResponse,
+  UpdateRetroActionStatusRequest,
 } from './retro.models';
 
 /**
@@ -38,6 +43,11 @@ import {
  * {@link listFormats} and {@link createFormat} (US20.2.1, `/retro/formats`) are subject to
  * the exact same auth gap as {@link create} — same reasoning, same fix once
  * `@pivot/ui-core` is wired in.
+ *
+ * {@link createAction}, {@link updateActionStatus}, {@link listTeamActions} and {@link
+ * listTeamMembers} (US20.3.1, `/retro/sessions/{id}/actions`, `/retro/actions/{actionId}`,
+ * `/retro/teams/{teamId}/actions`, `/teams/{teamId}/members`) are all subject to the exact same
+ * auth gap as {@link create} — same reasoning, same fix once `@pivot/ui-core` is wired in.
  */
 @Injectable({ providedIn: 'root' })
 export class RetroApiService {
@@ -178,21 +188,81 @@ export class RetroApiService {
   }
 
   /**
-   * Triggers action creation from a ranked card in the `ACTION` phase (US20.1.2c) — calls
-   * US20.3.1's `POST /retro/sessions/{id}/actions` with the card as source.
+   * Creates an action during a session's `ACTION` phase (US20.3.1) — either from the session
+   * room's quick per-card trigger or from the full creation form. Every other participant sees
+   * the new action appear via the realtime `ACTION_CREATED` event ({@link
+   * RetroSessionWsService}, `RetroSessionTopicEvent`) broadcast on the session's own topic — this
+   * call's response is only used to update the *caller's* own view immediately.
    *
-   * **US20.3.1 has not shipped yet** (next wave, dependent on this US): this endpoint does not
-   * exist server-side today, so this call is expected to fail (404-equivalent) until it lands.
-   * Built to the correct forward request shape now so wiring the real response requires no
-   * change here later — the session room view already treats any failure of this call as a
-   * recoverable, per-card error, never an unhandled exception.
+   * See the class-level TSDoc for the current auth gap affecting this call.
    *
-   * @param sessionId the session the card belongs to
-   * @param request the action to create — see {@link CreateRetroActionRequest}'s TSDoc for why
-   *   its shape is provisional
+   * @param sessionId the session to create the action in
+   * @param request the action to create
+   * @throws HttpErrorResponse 400 `ownerUserId` is not a member of the session's team, or
+   *   `sourceCardId` does not reference a card of this session, 401 no/invalid token (expected
+   *   today, see class TSDoc), 404 unknown session or belongs to another tenant (generic — never
+   *   distinguishes the two, to avoid confirming cross-tenant existence), 409 session not
+   *   currently in `ACTION`.
    */
-  createAction(sessionId: string, request: CreateRetroActionRequest): Observable<unknown> {
-    return this.http.post(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`, request);
+  createAction(sessionId: string, request: CreateRetroActionRequest): Observable<RetroActionResponse> {
+    return this.http.post<RetroActionResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`, request);
+  }
+
+  /**
+   * Changes an action's status (US20.3.1). No state machine enforced — every status is reachable
+   * from every other one, including reopening an `ABANDONNEE` action. Not a realtime call: unlike
+   * {@link createAction}, no event is broadcast anywhere — this is only ever driven from the
+   * team-wide actions view (`TeamActionsComponent`), consulted outside any live session.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @param actionId the action's identifier
+   * @param request the new status
+   * @throws HttpErrorResponse 401 no/invalid token (expected today, see class TSDoc), 404 unknown
+   *   action or belongs to another tenant.
+   */
+  updateActionStatus(actionId: string, request: UpdateRetroActionStatusRequest): Observable<RetroActionResponse> {
+    return this.http.patch<RetroActionResponse>(`${environment.apiUrl}/retro/actions/${actionId}`, request);
+  }
+
+  /**
+   * Lists a team's retrospective actions across every session, past and present (US20.3.1) —
+   * feeds `TeamActionsComponent`, the "outside any session" actions view.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @param teamId the team's identifier
+   * @param filter optional status filter and/or due-date sort order
+   * @throws HttpErrorResponse 401 no/invalid token (expected today, see class TSDoc), 403 caller
+   *   not a team member, 404 team not found or belongs to another tenant.
+   */
+  listTeamActions(
+    teamId: number,
+    filter?: { status?: RetroActionStatus; sort?: RetroActionSort },
+  ): Observable<RetroActionResponse[]> {
+    let params = new HttpParams();
+    if (filter?.status) {
+      params = params.set('status', filter.status);
+    }
+    if (filter?.sort) {
+      params = params.set('sort', filter.sort);
+    }
+    return this.http.get<RetroActionResponse[]>(`${environment.apiUrl}/retro/teams/${teamId}/actions`, { params });
+  }
+
+  /**
+   * Lists the members of a team the caller belongs to — feeds the action-owner picker (US20.3.1).
+   * Calls the same, already-shipped `GET /teams/{teamId}/members` endpoint as
+   * `WheelApiService.listTeamMembers` (see {@link RetroTeamMemberResponse}'s TSDoc for why this
+   * is a deliberate small duplication rather than a cross-feature import).
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @param teamId the team's identifier
+   * @throws HttpErrorResponse 401 no/invalid token (expected today, see class TSDoc).
+   */
+  listTeamMembers(teamId: number): Observable<RetroTeamMemberResponse[]> {
+    return this.http.get<RetroTeamMemberResponse[]>(`${environment.apiUrl}/teams/${teamId}/members`);
   }
 
   /**

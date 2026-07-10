@@ -1,21 +1,24 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { RetroApiService } from '../data-access/retro-api.service';
 import { RetroSessionWsService } from '../data-access/retro-ws.service';
 import {
+  ActionCreatedEvent,
   CardAddedFacilitatorEvent,
   CardAddedMaskedEvent,
   CardsRevealedEvent,
   PhaseChangedEvent,
   RankedCard,
+  RetroActionResponse,
   RetroFormatColumn,
   RetroParticipantAccessResponse,
   RetroPhase,
   RetroSessionResponse,
   RetroSessionTopicEvent,
+  RetroTeamMemberResponse,
   RevealedCard,
   SessionClosedEvent,
   VoteBalanceEvent,
@@ -95,6 +98,15 @@ const FALLBACK_COLUMNS: Record<string, { key: string; labelKey: string }[]> = {
  * room to its read-only lockdown state (every phase-gated control above simply stops rendering
  * once {@link phase} is `CLOSED`, since none of them match that phase).
  *
+ * <p>Since US20.3.1, the `ACTION` phase additionally offers a full action-creation form (title,
+ * optional owner picked from {@link teamMembers}, optional due date, optional source card picked
+ * from {@link rankedCards}) alongside the pre-existing per-card quick trigger — both call the
+ * same {@link RetroApiService.createAction}. Every action created by any participant (via either
+ * path) is appended to {@link sessionActions}: the caller's own creation is applied directly from
+ * the HTTP response, every other participant's from the realtime `ACTION_CREATED` event — {@link
+ * addSessionAction} dedupes by id so a participant never sees their own action listed twice, once
+ * from the response and once from the echoed broadcast.
+ *
  * No business logic here beyond orchestration — {@link RetroApiService} owns every HTTP call,
  * {@link RetroSessionWsService} owns the STOMP lifecycle and raw frame parsing dispatch happens
  * here (mirrors `JoinRoomComponent`'s split of responsibilities).
@@ -114,7 +126,7 @@ const FALLBACK_COLUMNS: Record<string, { key: string; labelKey: string }[]> = {
   selector: 'app-session-room',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoPipe],
+  imports: [TranslocoPipe, RouterLink],
   templateUrl: './session-room.component.html',
   styleUrl: './session-room.component.scss',
 })
@@ -187,6 +199,34 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
    * exists server-side), cleared at the start of a new attempt.
    */
   protected readonly actionCreationResult = signal<Record<string, 'success' | 'error'>>({});
+
+  /**
+   * Every action created in this session so far (US20.3.1) — from either the quick per-card
+   * trigger ({@link createActionFromCard}) or the full creation form ({@link submitActionForm}),
+   * by any participant. Kept deduplicated by id (see {@link addSessionAction}) since the caller's
+   * own creation reaches this signal twice: once from the HTTP response, once from the echoed
+   * `ACTION_CREATED` realtime event.
+   */
+  protected readonly sessionActions = signal<RetroActionResponse[]>([]);
+
+  /**
+   * The session's team members (US20.3.1) — feeds the action-creation form's owner picker.
+   * Loaded best-effort alongside {@link sessionDetail} (needs its `teamId`); stays empty for an
+   * account-less participant (the repo-wide auth gap) or if the call fails — the owner field
+   * simply has no options to choose from, since it is optional either way.
+   */
+  protected readonly teamMembers = signal<RetroTeamMemberResponse[]>([]);
+
+  /** The action-creation form's title draft (US20.3.1) — required field. */
+  protected readonly actionFormTitle = signal('');
+  /** The action-creation form's owner draft — a team member's `userId`, or `null` if unset. */
+  protected readonly actionFormOwnerId = signal<number | null>(null);
+  /** The action-creation form's due date draft (ISO date, `YYYY-MM-DD`), or `''` if unset. */
+  protected readonly actionFormDueDate = signal('');
+  /** The action-creation form's source card draft — a ranked card's id, or `null` if unset. */
+  protected readonly actionFormSourceCardId = signal<string | null>(null);
+  protected readonly actionFormPending = signal(false);
+  protected readonly actionFormErrorKey = signal<string | null>(null);
 
   /**
    * Live countdown, in seconds, until the configured contribution timer elapses — `null` when
@@ -474,15 +514,107 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
       return next;
     });
     this.retroApi.createAction(this.sessionId(), { title: card.content, sourceCardId: card.cardId }).subscribe({
-      next: () => {
+      next: action => {
         this.actionCreationPending.update(current => ({ ...current, [card.cardId]: false }));
         this.actionCreationResult.update(current => ({ ...current, [card.cardId]: 'success' }));
+        this.addSessionAction(action);
       },
       error: () => {
         this.actionCreationPending.update(current => ({ ...current, [card.cardId]: false }));
         this.actionCreationResult.update(current => ({ ...current, [card.cardId]: 'error' }));
       },
     });
+  }
+
+  /** Updates the action-creation form's title draft. */
+  protected updateActionFormTitle(value: string): void {
+    this.actionFormTitle.set(value);
+  }
+
+  /** Updates the action-creation form's owner draft from the owner `<select>`'s value. */
+  protected updateActionFormOwner(value: string): void {
+    this.actionFormOwnerId.set(value === '' ? null : Number(value));
+  }
+
+  /** Updates the action-creation form's due date draft from the date `<input>`'s value. */
+  protected updateActionFormDueDate(value: string): void {
+    this.actionFormDueDate.set(value);
+  }
+
+  /** Updates the action-creation form's source card draft from the source-card `<select>`'s value. */
+  protected updateActionFormSourceCard(value: string): void {
+    this.actionFormSourceCardId.set(value === '' ? null : value);
+  }
+
+  /** Whether the action-creation form can currently be submitted: a non-blank title, not already pending. */
+  protected canSubmitActionForm(): boolean {
+    return this.actionFormTitle().trim().length > 0 && !this.actionFormPending();
+  }
+
+  /**
+   * Submits the action-creation form (US20.3.1) — title required, owner/due date/source card all
+   * optional. Available to the facilitator or any participant, mirroring {@link
+   * createActionFromCard}'s same "l'animateur ou un participant" AC. On success, resets the form
+   * and appends the created action to {@link sessionActions} immediately (also reached, harmlessly
+   * deduplicated, via the echoed `ACTION_CREATED` realtime event).
+   */
+  protected submitActionForm(): void {
+    if (!this.canSubmitActionForm()) {
+      return;
+    }
+    this.actionFormPending.set(true);
+    this.actionFormErrorKey.set(null);
+
+    const ownerUserId = this.actionFormOwnerId();
+    const dueDate = this.actionFormDueDate();
+    const sourceCardId = this.actionFormSourceCardId();
+
+    this.retroApi
+      .createAction(this.sessionId(), {
+        title: this.actionFormTitle().trim(),
+        ...(ownerUserId !== null ? { ownerUserId } : {}),
+        ...(dueDate ? { dueDate } : {}),
+        ...(sourceCardId !== null ? { sourceCardId } : {}),
+      })
+      .subscribe({
+        next: action => {
+          this.actionFormPending.set(false);
+          this.resetActionForm();
+          this.addSessionAction(action);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.actionFormPending.set(false);
+          this.actionFormErrorKey.set(this.resolveActionFormErrorKey(error));
+        },
+      });
+  }
+
+  private resetActionForm(): void {
+    this.actionFormTitle.set('');
+    this.actionFormOwnerId.set(null);
+    this.actionFormDueDate.set('');
+    this.actionFormSourceCardId.set(null);
+  }
+
+  private resolveActionFormErrorKey(error: HttpErrorResponse): string {
+    if (error.status === 400) {
+      return 'retro.sessionRoom.action.form.error.invalid';
+    }
+    if (error.status === 404) {
+      return 'retro.sessionRoom.action.form.error.sessionUnavailable';
+    }
+    if (error.status === 409) {
+      return 'retro.sessionRoom.action.form.error.wrongPhase';
+    }
+    return 'retro.sessionRoom.action.form.error.generic';
+  }
+
+  /** Display name of a team member for a given owner id, or `null` if unknown/unset. */
+  protected ownerDisplayName(ownerUserId: number | null): string | null {
+    if (ownerUserId === null) {
+      return null;
+    }
+    return this.teamMembers().find(m => m.userId === ownerUserId)?.displayName ?? null;
   }
 
   /** The masked count for a column, or 0 if none submitted yet. */
@@ -519,6 +651,7 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
         this.phase.set(detail.currentPhase);
         this.startCountdownIfConfigured(detail);
         this.loadColumns();
+        this.loadTeamMembers(detail.teamId);
         if (detail.currentPhase === 'VOTE') {
           // Joining/reconnecting directly into an already-open vote phase (e.g. page reload) —
           // learn the caller's balance immediately rather than waiting for a `PHASE_CHANGED`
@@ -587,6 +720,29 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
     this.usingFallbackColumns.set(true);
   }
 
+  /**
+   * Best-effort load of the session's team members (US20.3.1), feeding the action-creation
+   * form's owner picker. Failure (e.g. the repo-wide auth gap for an account-less participant)
+   * simply leaves {@link teamMembers} empty — the owner field stays optional either way.
+   */
+  private loadTeamMembers(teamId: number): void {
+    this.retroApi.listTeamMembers(teamId).subscribe({
+      next: members => this.teamMembers.set(members),
+      error: () => {
+        // Best-effort only — see this method's TSDoc.
+      },
+    });
+  }
+
+  /**
+   * Appends a newly created action to {@link sessionActions}, deduplicated by id (US20.3.1) —
+   * the caller's own creation can reach this both from the HTTP response and the echoed
+   * `ACTION_CREATED` realtime event; every other participant's only ever from the latter.
+   */
+  private addSessionAction(action: RetroActionResponse): void {
+    this.sessionActions.update(current => (current.some(a => a.id === action.id) ? current : [...current, action]));
+  }
+
   private onTopicMessage(body: string): void {
     let event: RetroSessionTopicEvent;
     try {
@@ -610,6 +766,9 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
         break;
       case 'SESSION_CLOSED':
         this.applySessionClosed(event);
+        break;
+      case 'ACTION_CREATED':
+        this.applyActionCreated(event);
         break;
     }
   }
@@ -669,6 +828,14 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
     this.phase.set('CLOSED');
     this.closedAt.set(event.closedAt);
     this.stopCountdown();
+  }
+
+  /**
+   * Applies an `ACTION_CREATED` event (US20.3.1) — lets every participant (not just the one who
+   * created it) see the new action appear in {@link sessionActions} without reloading.
+   */
+  private applyActionCreated(event: ActionCreatedEvent): void {
+    this.addSessionAction(event.action);
   }
 
   private resolveJoinErrorKey(error: HttpErrorResponse): string {

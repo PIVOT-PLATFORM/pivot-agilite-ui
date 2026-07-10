@@ -293,7 +293,8 @@ export type RetroSessionTopicEvent =
   | CardsRevealedEvent
   | VoteCastEvent
   | VoteUncastEvent
-  | SessionClosedEvent;
+  | SessionClosedEvent
+  | ActionCreatedEvent;
 
 /**
  * `VOTE_BALANCE` event received on the caller's own private `/user/queue/votes` (US20.1.2b),
@@ -340,20 +341,85 @@ export interface CloseSessionResponse {
 }
 
 /**
- * Request body for `POST /retro/sessions/{id}/actions` — US20.3.1's endpoint, not yet built
- * (next wave after this US). This US only provides the contextualized trigger point (AC:
- * "cette US ne réimplémente pas la persistance, elle ne fait que le déclenchement
- * contextualisé"), so this shape is provisional: built from US20.3.1's own backlog outline
- * ("titre, owner, échéance, card source optionnelle") — `title`/`sourceCardId` are populated by
- * the session room view's create-action trigger, `ownerId`/`dueDate` are not yet exposed by any
- * UI here and simply left unset. Reconcile with the real request DTO once US20.3.1 lands.
+ * Lifecycle status of a retrospective action (US20.3.1). No strict state machine — every
+ * transition between any two statuses is allowed, both server-side (`PATCH
+ * /retro/actions/{actionId}`) and client-side (an `ABANDONNEE` action can be reopened).
+ */
+export type RetroActionStatus = 'A_FAIRE' | 'EN_COURS' | 'TERMINEE' | 'ABANDONNEE';
+
+/** All valid {@link RetroActionStatus} values, in display order. */
+export const RETRO_ACTION_STATUSES: readonly RetroActionStatus[] = ['A_FAIRE', 'EN_COURS', 'TERMINEE', 'ABANDONNEE'];
+
+/**
+ * Request body for `POST /retro/sessions/{id}/actions` (US20.3.1) — creates an action during a
+ * session's `ACTION` phase. Fixed contract, Gate 1 = 100 (`pivot-docs` PR #206) — coordinate
+ * with the backend agent before changing field names/shapes here.
  */
 export interface CreateRetroActionRequest {
+  /** Required. */
   title: string;
-  ownerId?: number;
-  /** ISO date. */
+  /** Optional — must reference a member of the session's team, enforced server-side. */
+  ownerUserId?: number;
+  /** Optional, ISO date (`YYYY-MM-DD`). */
   dueDate?: string;
+  /** Optional — must reference a card belonging to this session, enforced server-side. */
   sourceCardId?: string;
+}
+
+/**
+ * Response body for `POST /retro/sessions/{id}/actions` (201 Created) and every action returned
+ * by `GET /retro/teams/{teamId}/actions` / carried by {@link ActionCreatedEvent} / returned by
+ * `PATCH /retro/actions/{actionId}` (US20.3.1).
+ */
+export interface RetroActionResponse {
+  /** UUID. */
+  id: string;
+  /** UUID of the session this action was created in. */
+  sessionId: string;
+  teamId: number;
+  title: string;
+  ownerUserId: number | null;
+  /** ISO date (`YYYY-MM-DD`), or `null` if none was set. */
+  dueDate: string | null;
+  /** `null` when the action was not created from a card. */
+  sourceCardId: string | null;
+  status: RetroActionStatus;
+}
+
+/** Request body for `PATCH /retro/actions/{actionId}` (US20.3.1). */
+export interface UpdateRetroActionStatusRequest {
+  status: RetroActionStatus;
+}
+
+/**
+ * `ACTION_CREATED` event received on the regular session topic (US20.3.1) whenever any
+ * participant creates an action during the `ACTION` phase — lets every other participant see the
+ * new action appear in real time, without reloading.
+ */
+export interface ActionCreatedEvent {
+  type: 'ACTION_CREATED';
+  sessionId: string;
+  action: RetroActionResponse;
+}
+
+/**
+ * Sort order accepted by `GET /retro/teams/{teamId}/actions` (US20.3.1) — by due date, ascending
+ * (`'dueDate'`) or descending (`'-dueDate'`).
+ */
+export type RetroActionSort = 'dueDate' | '-dueDate';
+
+/**
+ * A member of a team, resolved server-side to a display name (US20.3.1's action-owner picker).
+ * Duplicated from `wheels/models/wheel.model.ts`'s identical `TeamMemberResponse` rather than
+ * imported across feature folders — mirrors this codebase's established convention of small,
+ * domain-scoped duplication over a shared cross-feature abstraction (see
+ * `RetroSessionWsService`'s `StompClient` interface for the same precedent), and both features
+ * call the exact same already-shipped `GET /teams/{teamId}/members` endpoint.
+ */
+export interface RetroTeamMemberResponse {
+  id: number;
+  userId: number;
+  displayName: string;
 }
 
 /**
@@ -371,6 +437,10 @@ export interface RetroProblemDetail {
    * `CUSTOM_FORMAT_INVALID_COLUMN_COUNT`, `INVALID_COLUMN_LABEL` (`POST /retro/formats`,
    * US20.2.1); `CUSTOM_FORMAT_ID_REQUIRED`, `CUSTOM_FORMAT_NOT_FOUND` (404),
    * `CUSTOM_FORMAT_ID_NOT_ALLOWED` (`POST /retro/sessions` with a custom format, US20.2.1).
+   * The Gate 1 contract for the action endpoints (US20.3.1, `POST
+   * /retro/sessions/{id}/actions`/`PATCH /retro/actions/{actionId}`) only specifies HTTP status
+   * codes (400/404/409), no dedicated `code` values — errors there are resolved from `status`
+   * alone, mirroring `resolveJoinErrorKey`'s existing convention.
    */
   code?: string;
 }

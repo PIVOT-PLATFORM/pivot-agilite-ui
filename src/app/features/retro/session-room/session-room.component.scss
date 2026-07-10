@@ -30,25 +30,17 @@
   align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
+}
 
-  button {
-    padding: 0.5rem 1rem;
-    border-radius: 0.25rem;
-    border: 1px solid transparent;
-    background: #0b5fff;
-    color: #fff;
-    cursor: pointer;
-
-    &[disabled] {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    &:focus-visible {
-      outline: 2px solid #0b5fff;
-      outline-offset: 1px;
-    }
-  }
+.session-room__facilitator-controls button,
+.session-room__action-form button[type='submit'] {
+  align-self: flex-start;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  border: 1px solid transparent;
+  background: #0b5fff;
+  color: #fff;
+  cursor: pointer;
 }
 
 .session-room__anonymous-toggle {
@@ -75,16 +67,21 @@
   margin: 0 0 0.75rem;
 }
 
-.session-room__card-list {
+.session-room__card-list,
+.session-room__action-list ul {
   list-style: none;
-  margin: 0 0 0.75rem;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.session-room__card {
+.session-room__card-list {
+  margin: 0 0 0.75rem;
+}
+
+.session-room__card,
+.session-room__action-item {
   background: #f4f5f7;
   border-radius: 0.375rem;
   padding: 0.5rem 0.75rem;
@@ -96,7 +93,8 @@
   display: block;
 }
 
-.session-room__vote-balance {
+.session-room__vote-balance,
+.session-room__action-item-title {
   font-weight: 600;
 }
 
@@ -117,16 +115,6 @@
   font-size: 1rem;
   line-height: 1.2;
   cursor: pointer;
-
-  &[disabled] {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &:focus-visible {
-    outline: 2px solid #0b5fff;
-    outline-offset: 1px;
-  }
 }
 
 .session-room__vote-count {
@@ -158,7 +146,8 @@
   gap: 0.5rem;
 }
 
-.session-room__ranking-item {
+.session-room__ranking-item,
+.session-room__action-item {
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
@@ -181,19 +170,12 @@
   color: #0b5fff;
   font-size: 0.85rem;
   cursor: pointer;
-
-  &[disabled] {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  &:focus-visible {
-    outline: 2px solid #0b5fff;
-    outline-offset: 1px;
-  }
 }
 
-.session-room__action-result {
+.session-room__action-result,
+.session-room__action-item-owner,
+.session-room__action-item-due-date,
+.session-room__action-item-status {
   font-size: 0.8rem;
   color: #58606b;
   font-style: italic;
@@ -219,7 +201,8 @@
   margin: 0 0 0.75rem;
 }
 
-.session-room__submit-form {
+.session-room__submit-form,
+.session-room__field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -236,11 +219,6 @@
   border-radius: 0.25rem;
   font-size: 0.95rem;
   resize: vertical;
-
-  &:focus-visible {
-    outline: 2px solid #0b5fff;
-    outline-offset: 1px;
-  }
 }
 
 .session-room__submit-form button {
@@ -250,9 +228,38 @@
   border: 1px solid #58606b;
   background: transparent;
   cursor: pointer;
+}
 
-  &:focus-visible {
-    outline: 2px solid #0b5fff;
-    outline-offset: 1px;
-  }
+// The action-creation form's own fields deliberately reuse `.session-room__field-label` /
+// `.session-room__card-input` (already defined above for the card-submission form) rather than
+// duplicating near-identical label/input rules — keeps this stylesheet under the
+// `anyComponentStyle` build budget.
+.session-room__team-actions-link {
+  color: #0b5fff;
+}
+
+.session-room__action-list ul {
+  margin: 1.5rem 0 0;
+}
+
+// Consolidated: every interactive control here shares the exact same focus ring / disabled
+// look — two grouped rules instead of many duplicated `&:focus-visible`/`&[disabled]` blocks
+// (keeps this stylesheet's compiled size under the `anyComponentStyle` build budget).
+.session-room__facilitator-controls button:focus-visible,
+.session-room__action-form button[type='submit']:focus-visible,
+.session-room__vote-button:focus-visible,
+.session-room__create-action-button:focus-visible,
+.session-room__card-input:focus-visible,
+.session-room__submit-form button:focus-visible,
+.session-room__team-actions-link:focus-visible {
+  outline: 2px solid #0b5fff;
+  outline-offset: 1px;
+}
+
+.session-room__facilitator-controls button[disabled],
+.session-room__action-form button[type='submit'][disabled],
+.session-room__vote-button[disabled],
+.session-room__create-action-button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

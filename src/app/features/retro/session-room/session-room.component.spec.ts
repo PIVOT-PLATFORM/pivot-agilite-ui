@@ -1,13 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { Subject, of, throwError } from 'rxjs';
 import {
+  RetroActionResponse,
   RetroFormatsResponse,
   RetroParticipantAccessResponse,
   RetroSessionResponse,
+  RetroTeamMemberResponse,
 } from '../data-access/retro.models';
 import { RetroApiService } from '../data-access/retro-api.service';
 import { RetroSessionWsService, RetroConnectionStatus } from '../data-access/retro-ws.service';
@@ -43,6 +45,7 @@ describe('SessionRoomComponent', () => {
   let closeVoteSpy: ReturnType<typeof vi.fn>;
   let closeSessionSpy: ReturnType<typeof vi.fn>;
   let createActionSpy: ReturnType<typeof vi.fn>;
+  let listTeamMembersSpy: ReturnType<typeof vi.fn>;
   let wsConnectSpy: ReturnType<typeof vi.fn>;
   let wsDisconnectSpy: ReturnType<typeof vi.fn>;
   let wsSubmitCardSpy: ReturnType<typeof vi.fn>;
@@ -101,6 +104,7 @@ describe('SessionRoomComponent', () => {
     closeVoteSpy = vi.fn().mockReturnValue(of({ currentPhase: 'ACTION' }));
     closeSessionSpy = vi.fn().mockReturnValue(of({ currentPhase: 'CLOSED' }));
     createActionSpy = vi.fn().mockReturnValue(of({ id: 'action-1' }));
+    listTeamMembersSpy = vi.fn().mockReturnValue(of([{ id: 1, userId: 7, displayName: 'Alex' }] as RetroTeamMemberResponse[]));
     wsConnectSpy = vi.fn();
     wsDisconnectSpy = vi.fn();
     wsSubmitCardSpy = vi.fn();
@@ -115,6 +119,7 @@ describe('SessionRoomComponent', () => {
     TestBed.configureTestingModule({
       imports: [SessionRoomComponent, TranslocoTestingModule.forRoot({ langs: { fr: {}, en: {} } })],
       providers: [
+        provideRouter([]),
         {
           provide: RetroApiService,
           useValue: {
@@ -127,6 +132,7 @@ describe('SessionRoomComponent', () => {
             closeVote: closeVoteSpy,
             closeSession: closeSessionSpy,
             createAction: createActionSpy,
+            listTeamMembers: listTeamMembersSpy,
           },
         },
         {
@@ -994,5 +1000,258 @@ describe('SessionRoomComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).not.toContain('closeSessionNow');
+  });
+
+  // ── Action creation form + realtime action list (US20.3.1) ──
+
+  it('loads the session team members after session detail loads', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(listTeamMembersSpy).toHaveBeenCalledWith(sessionDetail.teamId);
+    const component = fixture.componentInstance as unknown as { teamMembers: () => RetroTeamMemberResponse[] };
+    expect(component.teamMembers()).toEqual([{ id: 1, userId: 7, displayName: 'Alex' }]);
+  });
+
+  it('team member load failure is silently ignored (best-effort)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    listTeamMembersSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 401 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+
+    expect(() => fixture.detectChanges()).not.toThrow();
+    const component = fixture.componentInstance as unknown as { teamMembers: () => RetroTeamMemberResponse[] };
+    expect(component.teamMembers()).toEqual([]);
+  });
+
+  it('renders a link to the team actions view once the session teamId is known', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('a.session-room__team-actions-link') as HTMLAnchorElement;
+    expect(link).toBeTruthy();
+  });
+
+  it('does not render the team actions link when session detail could not be loaded', () => {
+    configure(NON_FACILITATOR_GRANT);
+    getByIdSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 401 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('a.session-room__team-actions-link')).toBeNull();
+  });
+
+  it('adds an action from a real ACTION_CREATED event, visible to every participant', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const action: RetroActionResponse = {
+      id: 'action-42',
+      sessionId: SESSION_ID,
+      teamId: 42,
+      title: 'Automate the release checklist',
+      ownerUserId: null,
+      dueDate: null,
+      sourceCardId: null,
+      status: 'A_FAIRE',
+    };
+    topicMessages$.next(JSON.stringify({ type: 'ACTION_CREATED', sessionId: SESSION_ID, action }));
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { sessionActions: () => RetroActionResponse[] };
+    expect(component.sessionActions()).toEqual([action]);
+    expect(fixture.nativeElement.textContent).toContain('Automate the release checklist');
+  });
+
+  it('renders an ACTION_CREATED action title as plain text, never as HTML (XSS safety)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const maliciousTitle = '<img src=x onerror=alert(1)>';
+    topicMessages$.next(
+      JSON.stringify({
+        type: 'ACTION_CREATED',
+        sessionId: SESSION_ID,
+        action: {
+          id: 'action-xss',
+          sessionId: SESSION_ID,
+          teamId: 42,
+          title: maliciousTitle,
+          ownerUserId: null,
+          dueDate: null,
+          sourceCardId: null,
+          status: 'A_FAIRE',
+        },
+      }),
+    );
+    fixture.detectChanges();
+
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.querySelector('img')).toBeNull();
+    expect(host.textContent).toContain(maliciousTitle);
+  });
+
+  it('canSubmitActionForm() requires a non-blank title', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as {
+      updateActionFormTitle: (v: string) => void;
+      canSubmitActionForm: () => boolean;
+    };
+    expect(component.canSubmitActionForm()).toBe(false);
+    component.updateActionFormTitle('   ');
+    expect(component.canSubmitActionForm()).toBe(false);
+    component.updateActionFormTitle('Automate the release checklist');
+    expect(component.canSubmitActionForm()).toBe(true);
+  });
+
+  it('submitActionForm() sends only the fields actually filled in, trims the title, and resets/appends on success', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const created: RetroActionResponse = {
+      id: 'action-99',
+      sessionId: SESSION_ID,
+      teamId: 42,
+      title: 'Automate the release checklist',
+      ownerUserId: 7,
+      dueDate: '2026-08-01',
+      sourceCardId: 'card-1',
+      status: 'A_FAIRE',
+    };
+    createActionSpy.mockReturnValue(of(created));
+
+    const component = fixture.componentInstance as unknown as {
+      updateActionFormTitle: (v: string) => void;
+      updateActionFormOwner: (v: string) => void;
+      updateActionFormDueDate: (v: string) => void;
+      updateActionFormSourceCard: (v: string) => void;
+      submitActionForm: () => void;
+      sessionActions: () => RetroActionResponse[];
+      actionFormTitle: () => string;
+    };
+    component.updateActionFormTitle('  Automate the release checklist  ');
+    component.updateActionFormOwner('7');
+    component.updateActionFormDueDate('2026-08-01');
+    component.updateActionFormSourceCard('card-1');
+    component.submitActionForm();
+
+    expect(createActionSpy).toHaveBeenCalledWith(SESSION_ID, {
+      title: 'Automate the release checklist',
+      ownerUserId: 7,
+      dueDate: '2026-08-01',
+      sourceCardId: 'card-1',
+    });
+    expect(component.sessionActions()).toEqual([created]);
+    expect(component.actionFormTitle()).toBe('');
+  });
+
+  it('submitActionForm() with only the required title omits every optional field from the request', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as {
+      updateActionFormTitle: (v: string) => void;
+      submitActionForm: () => void;
+    };
+    component.updateActionFormTitle('Minimal action');
+    component.submitActionForm();
+
+    expect(createActionSpy).toHaveBeenCalledWith(SESSION_ID, { title: 'Minimal action' });
+  });
+
+  it('submitActionForm() no-ops when the title is blank', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+    createActionSpy.mockClear();
+
+    const component = fixture.componentInstance as unknown as { submitActionForm: () => void };
+    component.submitActionForm();
+
+    expect(createActionSpy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [400, 'invalid'],
+    [404, 'sessionUnavailable'],
+    [409, 'wrongPhase'],
+    [500, 'generic'],
+  ])('submitActionForm() maps a %i error to the %s error key', (status, key) => {
+    configure(NON_FACILITATOR_GRANT);
+    createActionSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const component = fixture.componentInstance as unknown as {
+      updateActionFormTitle: (v: string) => void;
+      submitActionForm: () => void;
+    };
+    component.updateActionFormTitle('Some action');
+    component.submitActionForm();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(key);
+  });
+
+  it('does not show the action-creation form once the session is CLOSED', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    topicMessages$.next(
+      JSON.stringify({ type: 'SESSION_CLOSED', sessionId: SESSION_ID, previousPhase: 'ACTION', closedAt: '2026-07-10T12:10:00Z' }),
+    );
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#action-title')).toBeNull();
+  });
+
+  it('a session action created by the caller is never listed twice (HTTP response + echoed ACTION_CREATED dedupe by id)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+    moveToAction(fixture);
+
+    const created: RetroActionResponse = {
+      id: 'action-1',
+      sessionId: SESSION_ID,
+      teamId: 42,
+      title: 'Minimal action',
+      ownerUserId: null,
+      dueDate: null,
+      sourceCardId: null,
+      status: 'A_FAIRE',
+    };
+    createActionSpy.mockReturnValue(of(created));
+
+    const component = fixture.componentInstance as unknown as {
+      updateActionFormTitle: (v: string) => void;
+      submitActionForm: () => void;
+      sessionActions: () => RetroActionResponse[];
+    };
+    component.updateActionFormTitle('Minimal action');
+    component.submitActionForm();
+
+    // Echo of the caller's own creation, broadcast back on the topic.
+    topicMessages$.next(JSON.stringify({ type: 'ACTION_CREATED', sessionId: SESSION_ID, action: created }));
+    fixture.detectChanges();
+
+    expect(component.sessionActions()).toEqual([created]);
   });
 });

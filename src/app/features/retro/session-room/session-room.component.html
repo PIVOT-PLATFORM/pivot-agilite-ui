@@ -33,6 +33,11 @@
           {{ 'retro.sessionRoom.closedBanner' | transloco }}
         </p>
       }
+      @if (sessionDetail(); as detail) {
+        <a class="session-room__team-actions-link" [routerLink]="['/retro/teams', detail.teamId, 'actions']">
+          {{ 'retro.sessionRoom.viewTeamActions' | transloco }}
+        </a>
+      }
     </div>
 
     @if (isFacilitator()) {
@@ -120,6 +125,111 @@
           </div>
         }
       </section>
+
+      @if (phase() === 'ACTION') {
+        <section class="session-room__action-form" aria-labelledby="action-form-heading">
+          <h2 id="action-form-heading">{{ 'retro.sessionRoom.action.form.heading' | transloco }}</h2>
+          <form class="session-room__submit-form" (ngSubmit)="submitActionForm()">
+            <div class="session-room__field">
+              <label class="session-room__field-label" for="action-title">
+                {{ 'retro.sessionRoom.action.form.titleLabel' | transloco }}
+              </label>
+              <input
+                id="action-title"
+                class="session-room__card-input"
+                type="text"
+                required
+                [value]="actionFormTitle()"
+                (input)="updateActionFormTitle($any($event.target).value)"
+              />
+            </div>
+
+            <div class="session-room__field">
+              <label class="session-room__field-label" for="action-owner">
+                {{ 'retro.sessionRoom.action.form.ownerLabel' | transloco }}
+              </label>
+              <select
+                id="action-owner"
+                class="session-room__card-input"
+                [value]="actionFormOwnerId() ?? ''"
+                (change)="updateActionFormOwner($any($event.target).value)"
+              >
+                <option value="">{{ 'retro.sessionRoom.action.form.ownerNone' | transloco }}</option>
+                @for (member of teamMembers(); track member.id) {
+                  <option [value]="member.userId">{{ member.displayName }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="session-room__field">
+              <label class="session-room__field-label" for="action-due-date">
+                {{ 'retro.sessionRoom.action.form.dueDateLabel' | transloco }}
+              </label>
+              <input
+                id="action-due-date"
+                class="session-room__card-input"
+                type="date"
+                [value]="actionFormDueDate()"
+                (change)="updateActionFormDueDate($any($event.target).value)"
+              />
+            </div>
+
+            <div class="session-room__field">
+              <label class="session-room__field-label" for="action-source-card">
+                {{ 'retro.sessionRoom.action.form.sourceCardLabel' | transloco }}
+              </label>
+              <select
+                id="action-source-card"
+                class="session-room__card-input"
+                [value]="actionFormSourceCardId() ?? ''"
+                (change)="updateActionFormSourceCard($any($event.target).value)"
+              >
+                <option value="">{{ 'retro.sessionRoom.action.form.sourceCardNone' | transloco }}</option>
+                @for (card of rankedCards() ?? []; track card.cardId) {
+                  <option [value]="card.cardId">{{ card.content }}</option>
+                }
+              </select>
+            </div>
+
+            @if (actionFormErrorKey(); as formError) {
+              <p class="session-room__error" role="alert">{{ formError | transloco }}</p>
+            }
+
+            <button type="submit" [disabled]="!canSubmitActionForm()">
+              {{
+                (actionFormPending() ? 'retro.sessionRoom.action.form.submitting' : 'retro.sessionRoom.action.form.submit')
+                  | transloco
+              }}
+            </button>
+          </form>
+        </section>
+      }
+
+      @if (sessionActions().length > 0) {
+        <section class="session-room__action-list" aria-labelledby="action-list-heading">
+          <h2 id="action-list-heading">{{ 'retro.sessionRoom.action.list.heading' | transloco }}</h2>
+          <ul>
+            @for (action of sessionActions(); track action.id) {
+              <li class="session-room__action-item">
+                <span class="session-room__action-item-title">{{ action.title }}</span>
+                <span class="session-room__action-item-status">
+                  {{ 'retro.sessionRoom.action.status.' + action.status | transloco }}
+                </span>
+                @if (ownerDisplayName(action.ownerUserId); as owner) {
+                  <span class="session-room__action-item-owner">
+                    {{ 'retro.sessionRoom.action.list.ownerLabel' | transloco : { owner } }}
+                  </span>
+                }
+                @if (action.dueDate) {
+                  <span class="session-room__action-item-due-date">
+                    {{ 'retro.sessionRoom.action.list.dueDateLabel' | transloco : { dueDate: action.dueDate } }}
+                  </span>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
     } @else {
       <div class="session-room__columns">
         @for (column of columns(); track column.key) {

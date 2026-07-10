@@ -199,7 +199,35 @@
       "action": {
         "createFromCard": "Créer une action",
         "createLabel": "Créer une action à partir de « {{content}} »",
-        "created": "Action créée."
+        "created": "Action créée.",
+        "status": {
+          "A_FAIRE": "À faire",
+          "EN_COURS": "En cours",
+          "TERMINEE": "Terminée",
+          "ABANDONNEE": "Abandonnée"
+        },
+        "form": {
+          "heading": "Créer une action",
+          "titleLabel": "Titre",
+          "ownerLabel": "Responsable (optionnel)",
+          "ownerNone": "Aucun responsable",
+          "dueDateLabel": "Échéance (optionnelle)",
+          "sourceCardLabel": "Card source (optionnelle)",
+          "sourceCardNone": "Aucune card source",
+          "submit": "Créer l'action",
+          "submitting": "Création en cours…",
+          "error": {
+            "invalid": "Le responsable sélectionné n'est pas membre de l'équipe, ou la card source ne correspond pas à cette session.",
+            "sessionUnavailable": "Impossible de créer l'action pour cette session.",
+            "wrongPhase": "Impossible de créer une action en dehors de la phase Action.",
+            "generic": "Une erreur est survenue lors de la création de l'action. Veuillez réessayer."
+          }
+        },
+        "list": {
+          "heading": "Actions de cette session",
+          "ownerLabel": "Responsable : {{owner}}",
+          "dueDateLabel": "Échéance : {{dueDate}}"
+        }
       },
       "error": {
         "notFound": "Session introuvable.",
@@ -221,7 +249,8 @@
         "sad": "Triste",
         "glad": "Content",
         "general": "Général"
-      }
+      },
+      "viewTeamActions": "Voir les actions de l'équipe"
     }
   },
   "scrumPoker": {
@@ -304,5 +333,36 @@
       "consensusMajority": "Valeur majoritaire",
       "noNumericConsensus": "Pas de consensus numérique"
     }
+  },
+  "teamActions": {
+    "title": "Actions de l'équipe",
+    "filterLabel": "Filtrer par statut",
+    "filterAll": "Tous les statuts",
+    "status": {
+      "A_FAIRE": "À faire",
+      "EN_COURS": "En cours",
+      "TERMINEE": "Terminée",
+      "ABANDONNEE": "Abandonnée"
+    },
+    "sortLabel": "Trier par échéance",
+    "sortAscending": "Échéance croissante",
+    "sortDescending": "Échéance décroissante",
+    "columns": {
+      "title": "Titre",
+      "owner": "Responsable",
+      "dueDate": "Échéance",
+      "status": "Statut",
+      "sourceCard": "Card source"
+    },
+    "noDueDate": "Aucune échéance",
+    "unknownOwner": "Non assignée",
+    "fromCard": "Issue d'une card de rétrospective",
+    "loading": "Chargement des actions…",
+    "loadError": "Impossible de charger les actions de cette équipe.",
+    "retry": "Réessayer",
+    "empty": "Aucune action pour cette équipe.",
+    "statusChangeLabel": "Changer le statut de « {{title}} »",
+    "statusChangeError": "Le changement de statut a échoué. Veuillez réessayer.",
+    "missingTeamId": "Identifiant d'équipe manquant."
   }
 }

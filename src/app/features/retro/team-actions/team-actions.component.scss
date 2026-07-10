@@ -1,0 +1,103 @@
+// Styles minimaux, auto-contenus (pas de tokens @pivot/design-system — EN17.2, repo pas
+// encore créé, voir CLAUDE.md). Contraste vérifié WCAG 2.1 AA (texte normal >= 4.5:1).
+
+.team-actions {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.team-actions__error {
+  color: #b3261e;
+  font-size: 0.875rem;
+}
+
+.team-actions__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.team-actions__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+
+  label {
+    font-weight: 600;
+  }
+
+  select {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #58606b;
+    border-radius: 0.25rem;
+    font-size: 0.9rem;
+
+    &:focus-visible {
+      outline: 2px solid #0b5fff;
+      outline-offset: 1px;
+    }
+  }
+}
+
+.team-actions__controls button {
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.25rem;
+  border: 1px solid #58606b;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+
+  &:focus-visible {
+    outline: 2px solid #0b5fff;
+    outline-offset: 1px;
+  }
+}
+
+.team-actions__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #d8dce1;
+    vertical-align: top;
+  }
+
+  th {
+    font-weight: 700;
+  }
+
+  select {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #58606b;
+    border-radius: 0.25rem;
+    font-size: 0.85rem;
+
+    &:focus-visible {
+      outline: 2px solid #0b5fff;
+      outline-offset: 1px;
+    }
+  }
+}
+
+// Visually hidden but still announced by screen readers — the per-row status <select> already
+// conveys its purpose visually via the adjacent "Statut" column heading, but each <select> still
+// needs its own accessible name naming the row it belongs to.
+.team-actions__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
