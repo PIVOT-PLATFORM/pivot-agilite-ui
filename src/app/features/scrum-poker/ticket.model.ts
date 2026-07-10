@@ -60,8 +60,54 @@ export interface VoteCastEvent {
   readonly totalParticipants: number;
 }
 
-/** Discriminated union of every event type carried on the room's regular topic (US09.2.1). */
-export type RoomTopicEvent = TicketCreatedEvent | VoteCastEvent;
+/**
+ * Consensus computed at reveal time (US09.2.2) — `mean`/`median` are derived exclusively from the
+ * numeric subset of `PokerCardDeck.FIBONACCI_VALUES` (everything except `"?"`), `null` when that
+ * subset is empty (all votes were `"?"`, or there were no votes at all). `majority` is derived
+ * from *every* raw value (`"?"` included) and can legitimately point at a different answer than
+ * `mean`/`median` — e.g. votes `["3","?","?","5"]` yields `mean: 4, median: 4, majority: "?"`.
+ * `majority` is `null` only when zero votes were cast at all.
+ */
+export interface ConsensusResponse {
+  readonly mean: number | null;
+  readonly median: number | null;
+  readonly majority: string | null;
+}
+
+/** Response body for `POST /api/agilite/poker/rooms/{roomId}/tickets/{ticketId}/reveal` (US09.2.2). */
+export interface RevealResponse {
+  readonly id: string;
+  readonly roomId: string;
+  readonly title: string;
+  readonly status: 'REVEALED';
+  readonly createdAt: string;
+  readonly revealedAt: string;
+  /**
+   * Every cast vote's raw value, one entry per participant who voted — anonymous by design (no
+   * `participantKey`/identity anywhere in this shape or the event below), order carries no
+   * meaning.
+   */
+  readonly values: readonly string[];
+  readonly consensus: ConsensusResponse;
+}
+
+/**
+ * `VOTES_REVEALED` event received on the room's regular topic when the facilitator reveals the
+ * current ticket (US09.2.2) — broadcast to every subscriber simultaneously, never staggered.
+ * Carries the exact same `values`/`consensus` as the REST reveal response, so a participant who
+ * only sees the broadcast (never called the endpoint themselves) ends up with identical state.
+ */
+export interface VotesRevealedEvent {
+  readonly type: 'VOTES_REVEALED';
+  readonly roomId: string;
+  readonly ticketId: string;
+  readonly values: readonly string[];
+  readonly consensus: ConsensusResponse;
+  readonly revealedAt: string;
+}
+
+/** Discriminated union of every event type carried on the room's regular topic. */
+export type RoomTopicEvent = TicketCreatedEvent | VoteCastEvent | VotesRevealedEvent;
 
 /**
  * RFC 7807 `ProblemDetail` error shape returned by `pivot-agilite-core` for ticket endpoints, with

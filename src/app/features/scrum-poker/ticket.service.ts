@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { CreateTicketRequest, TicketResponse } from './ticket.model';
+import { CreateTicketRequest, RevealResponse, TicketResponse } from './ticket.model';
 
 /**
  * HTTP client for the planning poker ticket API (US09.2.1).
@@ -46,5 +46,18 @@ export class TicketService {
    */
   getCurrentTicket(roomId: string): Observable<TicketResponse | null> {
     return this.http.get<TicketResponse | null>(`${this.ticketsUrl(roomId)}/current`);
+  }
+
+  /**
+   * Reveals the ticket's votes and triggers server-side consensus calculation (US09.2.2) —
+   * restricted server-side to that room's facilitator, permitted at any point while the ticket
+   * is `VOTING` (no completeness gate on `votedCount`/`totalParticipants`).
+   *
+   * @param roomId   the target room
+   * @param ticketId the ticket to reveal
+   * @returns an observable of the reveal response (revealed ticket, raw values, consensus)
+   */
+  revealTicket(roomId: string, ticketId: string): Observable<RevealResponse> {
+    return this.http.post<RevealResponse>(`${this.ticketsUrl(roomId)}/${ticketId}/reveal`, {});
   }
 }
