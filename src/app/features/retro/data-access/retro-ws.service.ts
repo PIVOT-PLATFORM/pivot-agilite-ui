@@ -2,7 +2,7 @@ import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { Observable, Subject, Subscription } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { SubmitCardRequest } from './retro.models';
+import { CastVoteRequest, RetroParticipantAccessResponse, SubmitCardRequest } from './retro.models';
 
 /**
  * Native STOMP header carrying the session-scoped access token returned by
@@ -10,6 +10,14 @@ import { SubmitCardRequest } from './retro.models';
  * `RetroChannelInterceptor.ACCESS_TOKEN_HEADER` / `getFirstNativeHeader("access-token")`.
  */
 const ACCESS_TOKEN_HEADER = 'access-token';
+
+/**
+ * Private, per-participant STOMP destination carrying {@link VoteBalanceEvent} (US20.1.2b).
+ * Spring's `UserDestinationMessageHandler` (server-side, `/user` prefix) transparently routes
+ * this literal client-side subscription to the caller's own session — no per-session suffix to
+ * compute here.
+ */
+const VOTE_BALANCE_QUEUE = '/user/queue/votes';
 
 /** UI connection status for the STOMP link opened after joining a session (US20.1.2a). */
 export type RetroConnectionStatus = 'connecting' | 'connected' | 'error';
@@ -57,6 +65,13 @@ export const STOMP_CLIENT_FACTORY = new InjectionToken<() => StompClient>('RETRO
  * Deliberately exposes raw STOMP frame bodies (`string`), not pre-parsed objects — parsing/
  * dispatch by the `type` discriminator is the subscriber's job (`SessionRoomComponent`), mirroring
  * `RoomWsService.messages$`'s same design choice.
+ *
+ * <p>Since US20.1.2b, also supports dot-voting: {@link castVote}/{@link uncastVote} publish to
+ * the grant's `voteDestination`/`voteUncastDestination`, and every participant (not just the
+ * facilitator) is additionally subscribed to their own private `/user/queue/votes` for
+ * `VOTE_BALANCE` notifications — {@link voteBalanceMessages$} exposes those raw bodies
+ * separately from {@link topicMessages$}/{@link facilitatorMessages$}, exactly like the existing
+ * two-stream split.
  */
 @Injectable({ providedIn: 'root' })
 export class RetroSessionWsService {
@@ -71,39 +86,43 @@ export class RetroSessionWsService {
   /** Raw bodies received on the facilitator-only preview topic (empty stream if not facilitator). */
   readonly facilitatorMessages$ = new Subject<string>();
 
+  /** Raw bodies received on the caller's private vote-balance queue (US20.1.2b). */
+  readonly voteBalanceMessages$ = new Subject<string>();
+
   private client: StompClient | null = null;
   private topicSubscription: Subscription | null = null;
   private facilitatorSubscription: Subscription | null = null;
+  private voteBalanceSubscription: Subscription | null = null;
   private stateSubscription: Subscription | null = null;
   private stompErrorSubscription: Subscription | null = null;
   private submitDestination: string | null = null;
+  private voteDestination: string | null = null;
+  private voteUncastDestination: string | null = null;
+  private voteBalanceDestination: string | null = null;
   private accessToken: string | null = null;
 
   /** See `RoomWsService`'s identical field for why this guard exists (stale seeded `CLOSED`). */
   private everConnecting = false;
 
   /**
-   * Connects to `/ws/agilite` and subscribes to the session's topic(s), presenting the access
-   * token on the native `access-token` header. Safe to call once per join; call {@link
+   * Connects to `/ws/agilite` and subscribes to the session's destinations, presenting the
+   * access token on the native `access-token` header. Safe to call once per join; call {@link
    * disconnect} first to switch sessions on the same service instance.
    *
-   * @param topicDestination the session's regular (masked) topic
-   * @param accessToken the opaque access token from the join response
-   * @param submitDestination the destination {@link submitCard} sends to
-   * @param facilitatorTopicDestination the facilitator-only preview topic, or `null`/`undefined`
-   *   if the caller is not the facilitator (no second subscription is made in that case)
+   * @param access the full access grant returned by `POST /retro/sessions/{id}/participants` —
+   *   every destination {@link submitCard}/{@link castVote}/{@link uncastVote}/
+   *   {@link queryVoteBalance} address is read from it, so the caller never has to pass them
+   *   again individually
    */
-  connect(
-    topicDestination: string,
-    accessToken: string,
-    submitDestination: string,
-    facilitatorTopicDestination?: string | null,
-  ): void {
+  connect(access: RetroParticipantAccessResponse): void {
     this.disconnect();
     this.everConnecting = false;
     this.status.set('connecting');
-    this.submitDestination = submitDestination;
-    this.accessToken = accessToken;
+    this.submitDestination = access.submitDestination;
+    this.voteDestination = access.voteDestination;
+    this.voteUncastDestination = access.voteUncastDestination;
+    this.voteBalanceDestination = access.voteBalanceDestination;
+    this.accessToken = access.accessToken;
 
     const client = this.createClient();
     client.configure({ brokerURL: this.buildWsUrl() });
@@ -112,12 +131,15 @@ export class RetroSessionWsService {
     this.stateSubscription = client.connectionState$.subscribe(state => this.onStateChange(state));
     this.stompErrorSubscription = client.stompErrors$.subscribe(() => this.status.set('error'));
     this.topicSubscription = client
-      .watch(topicDestination, { [ACCESS_TOKEN_HEADER]: accessToken })
+      .watch(access.topicDestination, { [ACCESS_TOKEN_HEADER]: access.accessToken })
       .subscribe(message => this.topicMessages$.next(message.body));
+    this.voteBalanceSubscription = client
+      .watch(VOTE_BALANCE_QUEUE, { [ACCESS_TOKEN_HEADER]: access.accessToken })
+      .subscribe(message => this.voteBalanceMessages$.next(message.body));
 
-    if (facilitatorTopicDestination) {
+    if (access.facilitatorTopicDestination) {
       this.facilitatorSubscription = client
-        .watch(facilitatorTopicDestination, { [ACCESS_TOKEN_HEADER]: accessToken })
+        .watch(access.facilitatorTopicDestination, { [ACCESS_TOKEN_HEADER]: access.accessToken })
         .subscribe(message => this.facilitatorMessages$.next(message.body));
     }
 
@@ -131,12 +153,44 @@ export class RetroSessionWsService {
    * @param request the card content/column/anonymous flag
    */
   submitCard(request: SubmitCardRequest): void {
-    if (!this.client || !this.submitDestination || !this.accessToken) {
+    this.publish(this.submitDestination, request);
+  }
+
+  /**
+   * Casts a dot-vote on a revealed card (US20.1.2b). Several votes on the same card are allowed
+   * (up to the caller's remaining balance) — this simply sends one more cast request each time
+   * it is called. No-ops if {@link connect} was never called or the connection has since been
+   * torn down.
+   *
+   * @param cardId the target card's id
+   */
+  castVote(cardId: string): void {
+    this.publish(this.voteDestination, { cardId } satisfies CastVoteRequest);
+  }
+
+  /**
+   * Removes a single, previously cast dot-vote from a card (US20.1.2b). No-ops if {@link connect}
+   * was never called or the connection has since been torn down.
+   *
+   * @param cardId the target card's id
+   */
+  uncastVote(cardId: string): void {
+    this.publish(this.voteUncastDestination, { cardId } satisfies CastVoteRequest);
+  }
+
+  /**
+   * Asks the server to (re-)send the caller's current vote balance on {@link
+   * voteBalanceMessages$}, as a {@code VOTE_BALANCE} event (US20.1.2b) — empty body, the
+   * destination alone identifies the request. No-ops if {@link connect} was never called or the
+   * connection has since been torn down.
+   */
+  queryVoteBalance(): void {
+    if (!this.client || !this.voteBalanceDestination || !this.accessToken) {
       return;
     }
     this.client.publish({
-      destination: this.submitDestination,
-      body: JSON.stringify(request),
+      destination: this.voteBalanceDestination,
+      body: '',
       headers: { [ACCESS_TOKEN_HEADER]: this.accessToken },
     });
   }
@@ -148,17 +202,42 @@ export class RetroSessionWsService {
   disconnect(): void {
     this.topicSubscription?.unsubscribe();
     this.facilitatorSubscription?.unsubscribe();
+    this.voteBalanceSubscription?.unsubscribe();
     this.stateSubscription?.unsubscribe();
     this.stompErrorSubscription?.unsubscribe();
     this.topicSubscription = null;
     this.facilitatorSubscription = null;
+    this.voteBalanceSubscription = null;
     this.stateSubscription = null;
     this.stompErrorSubscription = null;
     this.submitDestination = null;
+    this.voteDestination = null;
+    this.voteUncastDestination = null;
+    this.voteBalanceDestination = null;
     this.accessToken = null;
 
     void this.client?.deactivate();
     this.client = null;
+  }
+
+  /**
+   * Serializes and publishes {@code payload} to {@code destination}, presenting the access token
+   * header — the shared implementation behind {@link submitCard}/{@link castVote}/
+   * {@link uncastVote}. No-ops if {@link connect} was never called, the connection has since been
+   * torn down, or {@code destination} is unset.
+   *
+   * @param destination the target destination, or `null` if unset
+   * @param payload the payload to serialize as the frame body
+   */
+  private publish(destination: string | null, payload: unknown): void {
+    if (!this.client || !destination || !this.accessToken) {
+      return;
+    }
+    this.client.publish({
+      destination,
+      body: JSON.stringify(payload),
+      headers: { [ACCESS_TOKEN_HEADER]: this.accessToken },
+    });
   }
 
   private onStateChange(state: RxStompState): void {

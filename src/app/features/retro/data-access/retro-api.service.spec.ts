@@ -5,8 +5,10 @@ import { environment } from '../../../../environments/environment';
 import { RetroApiService } from './retro-api.service';
 import {
   CloseContributionResponse,
+  CloseVoteResponse,
   CreateRetroFormatRequest,
   CreateRetroSessionRequest,
+  OpenVoteResponse,
   RetroFormatDefinition,
   RetroFormatsResponse,
   RetroParticipantAccessResponse,
@@ -322,6 +324,9 @@ describe('RetroApiService', () => {
       topicDestination: `/topic/agilite/retro/${sessionId}`,
       facilitatorTopicDestination: null,
       submitDestination: `/app/agilite/retro/${sessionId}/cards`,
+      voteDestination: `/app/agilite/retro/${sessionId}/votes`,
+      voteUncastDestination: `/app/agilite/retro/${sessionId}/votes/uncast`,
+      voteBalanceDestination: `/app/agilite/retro/${sessionId}/votes/balance`,
     };
 
     it('POSTs to /retro/sessions/{id}/participants with an empty body and returns the access grant', () => {
@@ -424,6 +429,82 @@ describe('RetroApiService', () => {
       service.reveal(sessionId).subscribe({ error: e => (error = e) });
 
       const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/reveal`);
+      req.flush({ title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
+
+      expect((error as { status: number }).status).toBe(409);
+    });
+  });
+
+  describe('openVote', () => {
+    const sessionId = '11111111-1111-1111-1111-111111111111';
+
+    it('POSTs to /retro/sessions/{id}/vote/open and returns the new phase', () => {
+      let result: OpenVoteResponse | undefined;
+
+      service.openVote(sessionId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/open`);
+      expect(req.request.method).toBe('POST');
+      req.flush({ currentPhase: 'VOTE' });
+
+      expect(result).toEqual({ currentPhase: 'VOTE' });
+    });
+
+    it('propagates a 403 error (caller is not the facilitator)', () => {
+      let error: unknown;
+
+      service.openVote(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/open`);
+      req.flush({ title: 'Forbidden', status: 403 }, { status: 403, statusText: 'Forbidden' });
+
+      expect((error as { status: number }).status).toBe(403);
+    });
+
+    it('propagates a 409 error (session has not yet reached REVUE)', () => {
+      let error: unknown;
+
+      service.openVote(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/open`);
+      req.flush({ title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
+
+      expect((error as { status: number }).status).toBe(409);
+    });
+  });
+
+  describe('closeVote', () => {
+    const sessionId = '11111111-1111-1111-1111-111111111111';
+
+    it('POSTs to /retro/sessions/{id}/vote/close and returns the new phase', () => {
+      let result: CloseVoteResponse | undefined;
+
+      service.closeVote(sessionId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/close`);
+      expect(req.request.method).toBe('POST');
+      req.flush({ currentPhase: 'ACTION' });
+
+      expect(result).toEqual({ currentPhase: 'ACTION' });
+    });
+
+    it('propagates a 403 error (caller is not the facilitator)', () => {
+      let error: unknown;
+
+      service.closeVote(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/close`);
+      req.flush({ title: 'Forbidden', status: 403 }, { status: 403, statusText: 'Forbidden' });
+
+      expect((error as { status: number }).status).toBe(403);
+    });
+
+    it('propagates a 409 error (session not currently in VOTE)', () => {
+      let error: unknown;
+
+      service.closeVote(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/close`);
       req.flush({ title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
 
       expect((error as { status: number }).status).toBe(409);
