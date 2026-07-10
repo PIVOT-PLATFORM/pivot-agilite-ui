@@ -175,6 +175,8 @@
       "fallbackNote": "Shown columns are provisional (format catalogue unavailable).",
       "closeContributionNow": "Close contribution now",
       "triggerReveal": "Reveal cards",
+      "openVoteNow": "Open voting",
+      "closeVoteNow": "Close voting",
       "submitAnonymously": "Submit anonymously",
       "noCards": "No cards yet.",
       "facilitatorPreview": "Facilitator preview (content in clear before reveal)",
@@ -182,6 +184,16 @@
       "cardInputLabel": "Card content",
       "submit": "Submit",
       "maskedCount": "{{count}} card(s) submitted",
+      "vote": {
+        "remaining": "Votes remaining: {{remaining}} / {{allowed}}",
+        "count": "{{count}} vote(s)",
+        "castLabel": "Add a vote to \"{{content}}\"",
+        "uncastLabel": "Remove a vote from \"{{content}}\"",
+        "mine": "Including {{count}} of yours"
+      },
+      "ranking": {
+        "heading": "Card ranking"
+      },
       "error": {
         "notFound": "Session not found.",
         "expired": "This session has expired or is closed.",

@@ -4,8 +4,10 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
   CloseContributionResponse,
+  CloseVoteResponse,
   CreateRetroFormatRequest,
   CreateRetroSessionRequest,
+  OpenVoteResponse,
   RetroFormatDefinition,
   RetroFormatsResponse,
   RetroParticipantAccessResponse,
@@ -130,6 +132,33 @@ export class RetroApiService {
    */
   reveal(sessionId: string): Observable<RevealResponse> {
     return this.http.post<RevealResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/reveal`, {});
+  }
+
+  /**
+   * Manually opens the vote phase (facilitator only, US20.1.2b), immediately transitioning to
+   * `VOTE`.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @throws HttpErrorResponse 401 no/invalid token, 403 caller is not the facilitator, 404 unknown
+   *   session or belongs to another tenant, 409 session has not yet reached `REVUE`.
+   */
+  openVote(sessionId: string): Observable<OpenVoteResponse> {
+    return this.http.post<OpenVoteResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/open`, {});
+  }
+
+  /**
+   * Manually closes the vote phase (facilitator only, US20.1.2b), immediately transitioning to
+   * `ACTION` — the vote-count ranking is broadcast separately, alongside `PHASE_CHANGED`, on the
+   * realtime channel (not part of this response).
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @throws HttpErrorResponse 401 no/invalid token, 403 caller is not the facilitator, 404 unknown
+   *   session or belongs to another tenant, 409 session not currently in `VOTE`.
+   */
+  closeVote(sessionId: string): Observable<CloseVoteResponse> {
+    return this.http.post<CloseVoteResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/close`, {});
   }
 
   /**

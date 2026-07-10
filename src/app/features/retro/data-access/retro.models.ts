@@ -161,6 +161,15 @@ export interface RetroParticipantAccessResponse {
   facilitatorTopicDestination: string | null;
   /** Destination to SEND a new card submission to. */
   submitDestination: string;
+  /** Destination to SEND a dot-vote cast to (US20.1.2b). */
+  voteDestination: string;
+  /** Destination to SEND a dot-vote removal to (US20.1.2b). */
+  voteUncastDestination: string;
+  /**
+   * Destination to SEND an (empty-body) balance query to (US20.1.2b) — the answer arrives on
+   * the caller's private `/user/queue/votes` as a {@link VoteBalanceEvent}.
+   */
+  voteBalanceDestination: string;
 }
 
 /** Payload sent over STOMP SEND to `submitDestination` to submit a new card (US20.1.2a). */
@@ -195,7 +204,21 @@ export interface CardAddedFacilitatorEvent {
   anonymous: boolean;
 }
 
-/** `PHASE_CHANGED` event received on the regular session topic (US20.1.2a). */
+/**
+ * A single card's shape in the vote-count ranking carried by {@link PhaseChangedEvent.rankedCards}
+ * (US20.1.2b), broadcast exclusively on the `VOTE` → `ACTION` transition.
+ */
+export interface RankedCard {
+  cardId: string;
+  columnKey: string;
+  content: string;
+  voteCount: number;
+}
+
+/**
+ * `PHASE_CHANGED` event received on the regular session topic (US20.1.2a; {@link rankedCards}
+ * added US20.1.2b).
+ */
 export interface PhaseChangedEvent {
   type: 'PHASE_CHANGED';
   sessionId: string;
@@ -203,6 +226,11 @@ export interface PhaseChangedEvent {
   currentPhase: RetroPhase;
   /** ISO instant. */
   changedAt: string;
+  /**
+   * Every card, ranked by vote count descending — populated only for the `VOTE` → `ACTION`
+   * transition (US20.1.2b), `null` for every other phase transition.
+   */
+  rankedCards: RankedCard[] | null;
 }
 
 /** A single revealed card — content in clear, deliberately never authorship (US20.1.2a). */
@@ -218,8 +246,54 @@ export interface CardsRevealedEvent {
   columns: Record<string, RevealedCard[]>;
 }
 
+/**
+ * `VOTE_CAST` event received on the regular session topic whenever any participant successfully
+ * casts a dot-vote (US20.1.2b). Never carries voter identity — only the card's new aggregate
+ * vote count, broadcast to every participant.
+ */
+export interface VoteCastEvent {
+  type: 'VOTE_CAST';
+  sessionId: string;
+  cardId: string;
+  voteCount: number;
+}
+
+/**
+ * `VOTE_UNCAST` event received on the regular session topic whenever any participant removes a
+ * previously cast dot-vote (US20.1.2b). Symmetric with {@link VoteCastEvent} — never carries
+ * voter identity.
+ */
+export interface VoteUncastEvent {
+  type: 'VOTE_UNCAST';
+  sessionId: string;
+  cardId: string;
+  voteCount: number;
+}
+
 /** Discriminated union of every event type carried on the regular session topic. */
-export type RetroSessionTopicEvent = CardAddedMaskedEvent | PhaseChangedEvent | CardsRevealedEvent;
+export type RetroSessionTopicEvent =
+  | CardAddedMaskedEvent
+  | PhaseChangedEvent
+  | CardsRevealedEvent
+  | VoteCastEvent
+  | VoteUncastEvent;
+
+/**
+ * `VOTE_BALANCE` event received on the caller's own private `/user/queue/votes` (US20.1.2b),
+ * after a cast/uncast/balance query — **never broadcast to the room topic**, the server is the
+ * sole source of truth for these numbers.
+ */
+export interface VoteBalanceEvent {
+  type: 'VOTE_BALANCE';
+  sessionId: string;
+  votesRemaining: number;
+  votesAllowed: number;
+}
+
+/** Payload sent over STOMP SEND to cast/uncast a dot-vote (US20.1.2b) — same shape for both. */
+export interface CastVoteRequest {
+  cardId: string;
+}
 
 /** Response body for `POST /retro/sessions/{id}/contribution/close` (US20.1.2a). */
 export interface CloseContributionResponse {
@@ -231,6 +305,16 @@ export interface RevealResponse {
   sessionId: string;
   cardCount: number;
   columns: Record<string, RevealedCard[]>;
+}
+
+/** Response body for `POST /retro/sessions/{id}/vote/open` (US20.1.2b). */
+export interface OpenVoteResponse {
+  currentPhase: RetroPhase;
+}
+
+/** Response body for `POST /retro/sessions/{id}/vote/close` (US20.1.2b). */
+export interface CloseVoteResponse {
+  currentPhase: RetroPhase;
 }
 
 /**

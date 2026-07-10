@@ -175,6 +175,8 @@
       "fallbackNote": "Les colonnes affichées sont provisoires (catalogue de formats indisponible).",
       "closeContributionNow": "Clôturer la contribution maintenant",
       "triggerReveal": "Révéler les cards",
+      "openVoteNow": "Ouvrir le vote",
+      "closeVoteNow": "Clôturer le vote",
       "submitAnonymously": "Soumettre anonymement",
       "noCards": "Aucune card pour le moment.",
       "facilitatorPreview": "Aperçu animateur (contenu en clair avant révélation)",
@@ -182,6 +184,16 @@
       "cardInputLabel": "Contenu de la card",
       "submit": "Proposer",
       "maskedCount": "{{count}} card(s) proposée(s)",
+      "vote": {
+        "remaining": "Votes restants : {{remaining}} / {{allowed}}",
+        "count": "{{count}} vote(s)",
+        "castLabel": "Ajouter un vote à « {{content}} »",
+        "uncastLabel": "Retirer un vote de « {{content}} »",
+        "mine": "Dont {{count}} de vous"
+      },
+      "ranking": {
+        "heading": "Classement des cards"
+      },
       "error": {
         "notFound": "Session introuvable.",
         "expired": "Cette session a expiré ou est clôturée.",

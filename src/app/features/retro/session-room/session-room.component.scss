@@ -92,6 +92,84 @@
   overflow-wrap: break-word;
 }
 
+.session-room__card-content {
+  display: block;
+}
+
+.session-room__vote-balance {
+  font-weight: 600;
+}
+
+.session-room__vote-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.session-room__vote-button {
+  min-width: 2rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 0.25rem;
+  border: 1px solid #58606b;
+  background: #fff;
+  font-size: 1rem;
+  line-height: 1.2;
+  cursor: pointer;
+
+  &[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #0b5fff;
+    outline-offset: 1px;
+  }
+}
+
+.session-room__vote-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.session-room__my-votes {
+  color: #58606b;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.session-room__ranking-list {
+  list-style: decimal;
+  margin: 0;
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-room__ranking-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.session-room__ranking-count {
+  font-weight: 700;
+}
+
+.session-room__ranking-column {
+  color: #58606b;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.session-room__ranking-content {
+  overflow-wrap: break-word;
+}
+
 .session-room__card--empty {
   background: transparent;
   color: #58606b;
