@@ -46,6 +46,8 @@ describe('SessionRoomComponent', () => {
   let closeSessionSpy: ReturnType<typeof vi.fn>;
   let createActionSpy: ReturnType<typeof vi.fn>;
   let listTeamMembersSpy: ReturnType<typeof vi.fn>;
+  let listPendingActionsSpy: ReturnType<typeof vi.fn>;
+  let updateActionStatusSpy: ReturnType<typeof vi.fn>;
   let wsConnectSpy: ReturnType<typeof vi.fn>;
   let wsDisconnectSpy: ReturnType<typeof vi.fn>;
   let wsSubmitCardSpy: ReturnType<typeof vi.fn>;
@@ -88,6 +90,18 @@ describe('SessionRoomComponent', () => {
     createdAt: '2026-07-10T00:00:00Z',
   };
 
+  /** A pending action from a past session (US20.3.2 warm-up panel). */
+  const PENDING_ACTION: RetroActionResponse = {
+    id: 'pending-1',
+    sessionId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    teamId: 42,
+    title: 'Fix flaky test',
+    ownerUserId: 7,
+    dueDate: '2026-07-15',
+    sourceCardId: null,
+    status: 'A_FAIRE',
+  };
+
   function configure(grant: RetroParticipantAccessResponse): void {
     joinSpy = vi.fn().mockReturnValue(of(grant));
     // Default: succeeds, as for an authenticated facilitator whose bearer token resolves —
@@ -105,6 +119,10 @@ describe('SessionRoomComponent', () => {
     closeSessionSpy = vi.fn().mockReturnValue(of({ currentPhase: 'CLOSED' }));
     createActionSpy = vi.fn().mockReturnValue(of({ id: 'action-1' }));
     listTeamMembersSpy = vi.fn().mockReturnValue(of([{ id: 1, userId: 7, displayName: 'Alex' }] as RetroTeamMemberResponse[]));
+    // Default: no pending action from a past session — every existing test in this file
+    // exercises the "nothing to warm up" path automatically, since it never overrides this.
+    listPendingActionsSpy = vi.fn().mockReturnValue(of([] as RetroActionResponse[]));
+    updateActionStatusSpy = vi.fn().mockReturnValue(of({ ...PENDING_ACTION, status: 'TERMINEE' } as RetroActionResponse));
     wsConnectSpy = vi.fn();
     wsDisconnectSpy = vi.fn();
     wsSubmitCardSpy = vi.fn();
@@ -133,6 +151,8 @@ describe('SessionRoomComponent', () => {
             closeSession: closeSessionSpy,
             createAction: createActionSpy,
             listTeamMembers: listTeamMembersSpy,
+            listPendingActions: listPendingActionsSpy,
+            updateActionStatus: updateActionStatusSpy,
           },
         },
         {
@@ -1253,5 +1273,189 @@ describe('SessionRoomComponent', () => {
     fixture.detectChanges();
 
     expect(component.sessionActions()).toEqual([created]);
+  });
+
+  // ── Warm-up panel (US20.3.2) ──
+
+  it('shows the warm-up panel before the phase interface when the team has a pending action', () => {
+    configure(NON_FACILITATOR_GRANT);
+    listPendingActionsSpy.mockReturnValue(of([PENDING_ACTION]));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(listPendingActionsSpy).toHaveBeenCalledWith(sessionDetail.teamId);
+    expect(fixture.nativeElement.querySelector('.session-room__warmup')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Fix flaky test');
+    expect(fixture.nativeElement.querySelector('.session-room__columns')).toBeNull();
+  });
+
+  it('skips the warm-up panel automatically when the team has no pending action (default)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.session-room__warmup')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.session-room__columns')).toBeTruthy();
+    const component = fixture.componentInstance as unknown as {
+      warmupResolved: () => boolean;
+      showWarmup: () => boolean;
+    };
+    expect(component.warmupResolved()).toBe(true);
+    expect(component.showWarmup()).toBe(false);
+  });
+
+  it('does not flash the phase interface (nor an empty warm-up panel) while the pending-actions check is still in flight', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const pending = new Subject<RetroActionResponse[]>();
+    listPendingActionsSpy.mockReturnValue(pending);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.session-room__columns')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.session-room__warmup')).toBeNull();
+
+    pending.next([]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.session-room__columns')).toBeTruthy();
+  });
+
+  it('dismissWarmup() continues into the phase interface without touching the real session phase', () => {
+    configure(NON_FACILITATOR_GRANT);
+    listPendingActionsSpy.mockReturnValue(of([PENDING_ACTION]));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { dismissWarmup: () => void; phase: () => string };
+    component.dismissWarmup();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.session-room__warmup')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.session-room__columns')).toBeTruthy();
+    expect(component.phase()).toBe('CONTRIBUTION');
+  });
+
+  it('markPendingAction() calls updateActionStatus (US20.3.1, unchanged) and removes the action from the panel on success', () => {
+    configure(NON_FACILITATOR_GRANT);
+    listPendingActionsSpy.mockReturnValue(of([PENDING_ACTION]));
+    updateActionStatusSpy.mockReturnValue(of({ ...PENDING_ACTION, status: 'TERMINEE' }));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const doneButton = fixture.nativeElement.querySelectorAll(
+      '.session-room__warmup .session-room__vote-button',
+    )[0] as HTMLButtonElement;
+    doneButton.click();
+    fixture.detectChanges();
+
+    expect(updateActionStatusSpy).toHaveBeenCalledWith('pending-1', { status: 'TERMINEE' });
+    const component = fixture.componentInstance as unknown as { pendingActions: () => RetroActionResponse[] };
+    expect(component.pendingActions()).toEqual([]);
+  });
+
+  it('markPendingAction() surfaces a per-row error on failure, keeping the action in the panel', () => {
+    configure(NON_FACILITATOR_GRANT);
+    listPendingActionsSpy.mockReturnValue(of([PENDING_ACTION]));
+    updateActionStatusSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as {
+      markPendingAction: (action: RetroActionResponse, status: 'TERMINEE' | 'ABANDONNEE') => void;
+      pendingActions: () => RetroActionResponse[];
+    };
+    component.markPendingAction(PENDING_ACTION, 'ABANDONNEE');
+    fixture.detectChanges();
+
+    expect(component.pendingActions()).toEqual([PENDING_ACTION]);
+    expect(fixture.nativeElement.textContent).toContain('updateError');
+  });
+
+  it('markPendingAction() no-ops while a call for another pending action is already in flight', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const secondAction: RetroActionResponse = { ...PENDING_ACTION, id: 'pending-2', title: 'Second action' };
+    listPendingActionsSpy.mockReturnValue(of([PENDING_ACTION, secondAction]));
+    const inFlight = new Subject<RetroActionResponse>();
+    updateActionStatusSpy.mockReturnValue(inFlight);
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as {
+      markPendingAction: (action: RetroActionResponse, status: 'TERMINEE' | 'ABANDONNEE') => void;
+    };
+    component.markPendingAction(PENDING_ACTION, 'TERMINEE');
+    component.markPendingAction(secondAction, 'TERMINEE');
+
+    expect(updateActionStatusSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the warm-up panel (fail-open) when the pending-actions check itself fails', () => {
+    configure(NON_FACILITATOR_GRANT);
+    listPendingActionsSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as {
+      warmupResolved: () => boolean;
+      showWarmup: () => boolean;
+    };
+    expect(component.warmupResolved()).toBe(true);
+    expect(component.showWarmup()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.session-room__columns')).toBeTruthy();
+  });
+
+  it('skips the warm-up check entirely when session detail cannot be loaded (no teamId known, account-less participant)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    getByIdSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 401 })));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    expect(listPendingActionsSpy).not.toHaveBeenCalled();
+    const component = fixture.componentInstance as unknown as {
+      warmupResolved: () => boolean;
+      showWarmup: () => boolean;
+    };
+    expect(component.warmupResolved()).toBe(true);
+    expect(component.showWarmup()).toBe(false);
+  });
+
+  /**
+   * A11y AC: each mark-status button carries its own `aria-label`, parameterized with the
+   * action's title (mirrors the vote cast/uncast buttons' existing `aria-label` convention
+   * elsewhere in this component — {@link RetroSessionWsService}'s `castLabel`/`uncastLabel`) so a
+   * screen-reader user tabbing through several pending actions hears which one each button
+   * applies to, not a generic "Marquer terminée" repeated for every row. `TranslocoTestingModule`
+   * is configured with empty language dictionaries in this spec (see `configure()`), so the
+   * interpolated title itself cannot be asserted here — only that the dedicated, per-status
+   * `aria-label` translation key is wired up at all (same depth already used for every other
+   * `errorKey`/status-key assertion in this file).
+   */
+  it('gives each mark-status button its own dedicated aria-label key', () => {
+    configure(NON_FACILITATOR_GRANT);
+    listPendingActionsSpy.mockReturnValue(of([PENDING_ACTION]));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const buttons = fixture.nativeElement.querySelectorAll(
+      '.session-room__warmup .session-room__vote-button',
+    ) as NodeListOf<HTMLButtonElement>;
+    expect(buttons[0].getAttribute('aria-label')).toContain('markDoneLabel');
+    expect(buttons[1].getAttribute('aria-label')).toContain('markAbandonedLabel');
+  });
+
+  /**
+   * Security AC: a pending action's title must be rendered via text interpolation only — a
+   * malicious payload containing markup must appear as literal text, never parsed as HTML.
+   */
+  it('renders a pending action title as plain text, never as HTML (XSS safety)', () => {
+    configure(NON_FACILITATOR_GRANT);
+    const maliciousTitle = '<img src=x onerror=alert(1)>';
+    listPendingActionsSpy.mockReturnValue(of([{ ...PENDING_ACTION, title: maliciousTitle }]));
+    const fixture = TestBed.createComponent(SessionRoomComponent);
+    fixture.detectChanges();
+
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.querySelector('img')).toBeNull();
+    expect(host.textContent).toContain(maliciousTitle);
   });
 });

@@ -107,6 +107,19 @@ const FALLBACK_COLUMNS: Record<string, { key: string; labelKey: string }[]> = {
  * addSessionAction} dedupes by id so a participant never sees their own action listed twice, once
  * from the response and once from the echoed broadcast.
  *
+ * <p>Since US20.3.2, joining also triggers a "warm-up" check ({@link checkPendingActions}):
+ * once the session's `teamId` is known (from {@link loadSessionDetailBestEffort}), the team's
+ * currently open (`A_FAIRE`/`EN_COURS`) retrospective actions from past sessions are fetched. If
+ * any are found, a warm-up panel is shown — listing them with a control to mark each `TERMINEE`
+ * or `ABANDONNEE` ({@link markPendingAction}, reusing {@link RetroApiService.updateActionStatus}
+ * unchanged) — before the phase-specific interface below ever renders; the facilitator/
+ * participant then continues past it ({@link dismissWarmup}). If none are found (or the check
+ * itself fails/never resolves the team, e.g. the repo-wide auth gap), the panel is skipped
+ * automatically — {@link warmupResolved} gates the phase interface from rendering (and from a
+ * "flash" of an empty panel) until the check has settled one way or the other. Purely a
+ * client-side, transient view state: the session itself is always created directly in
+ * `CONTRIBUTION` (US20.1.1) — `'WARMUP'` is never a {@link RetroPhase} value.
+ *
  * No business logic here beyond orchestration — {@link RetroApiService} owns every HTTP call,
  * {@link RetroSessionWsService} owns the STOMP lifecycle and raw frame parsing dispatch happens
  * here (mirrors `JoinRoomComponent`'s split of responsibilities).
@@ -216,6 +229,31 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
    * simply has no options to choose from, since it is optional either way.
    */
   protected readonly teamMembers = signal<RetroTeamMemberResponse[]>([]);
+
+  /**
+   * Whether the US20.3.2 "warm-up" pending-actions check has resolved — `false` while in flight,
+   * gating the phase-specific interface (and the warm-up panel itself) from rendering until we
+   * know one way or the other (see {@link checkPendingActions}). Never left `false` forever: both
+   * the success and error paths of {@link loadSessionDetailBestEffort} set it, and its own error
+   * path (no `teamId` known at all) sets it directly.
+   */
+  protected readonly warmupResolved = signal(false);
+
+  /**
+   * Whether the warm-up panel should currently be shown (US20.3.2) — `true` once {@link
+   * warmupResolved} and at least one pending action was found for the session's team. Set back to
+   * `false` by {@link dismissWarmup} once the facilitator/participant continues into the
+   * phase-specific interface; never shown again afterwards for this component instance.
+   */
+  protected readonly showWarmup = signal(false);
+
+  /** The team's currently open (`A_FAIRE`/`EN_COURS`) actions from prior sessions (US20.3.2). */
+  protected readonly pendingActions = signal<RetroActionResponse[]>([]);
+
+  /** Id of the pending action a warm-up status-change call is currently in flight for, or `null`. */
+  protected readonly warmupUpdatingActionId = signal<string | null>(null);
+  /** Id of the pending action whose last warm-up status-change call failed, or `null`. */
+  protected readonly warmupErrorActionId = signal<string | null>(null);
 
   /** The action-creation form's title draft (US20.3.1) — required field. */
   protected readonly actionFormTitle = signal('');
@@ -617,6 +655,42 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
     return this.teamMembers().find(m => m.userId === ownerUserId)?.displayName ?? null;
   }
 
+  /**
+   * Continues past the warm-up panel into the session's own phase-specific interface (US20.3.2) —
+   * a purely client-side transition, the session's real `currentPhase` is untouched.
+   */
+  protected dismissWarmup(): void {
+    this.showWarmup.set(false);
+  }
+
+  /**
+   * Marks a pending action `TERMINEE` or `ABANDONNEE` directly from the warm-up panel (US20.3.2) —
+   * reuses {@link RetroApiService.updateActionStatus} (US20.3.1) unchanged, no new backend
+   * behaviour needed for this call. Removes the row from {@link pendingActions} on success (it is
+   * no longer "pending" by definition); leaves it in place with an inline error on failure. No-ops
+   * while a call for this same action is already in flight.
+   *
+   * @param action the pending action to update
+   * @param status the target status — always `'TERMINEE'` or `'ABANDONNEE'` from this panel
+   */
+  protected markPendingAction(action: RetroActionResponse, status: 'TERMINEE' | 'ABANDONNEE'): void {
+    if (this.warmupUpdatingActionId() !== null) {
+      return;
+    }
+    this.warmupUpdatingActionId.set(action.id);
+    this.warmupErrorActionId.set(null);
+    this.retroApi.updateActionStatus(action.id, { status }).subscribe({
+      next: () => {
+        this.warmupUpdatingActionId.set(null);
+        this.pendingActions.update(current => current.filter(a => a.id !== action.id));
+      },
+      error: () => {
+        this.warmupUpdatingActionId.set(null);
+        this.warmupErrorActionId.set(action.id);
+      },
+    });
+  }
+
   /** The masked count for a column, or 0 if none submitted yet. */
   protected maskedCountFor(columnKey: string): number {
     return this.maskedCounts()[columnKey] ?? 0;
@@ -643,7 +717,13 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
     this.loadSessionDetailBestEffort();
   }
 
-  /** Best-effort: only succeeds for an authenticated caller once real auth is wired in. */
+  /**
+   * Best-effort: only succeeds for an authenticated caller once real auth is wired in. Also the
+   * only place {@link sessionDetail}'s `teamId` becomes known, so it is what triggers the
+   * US20.3.2 warm-up check ({@link checkPendingActions}) — on failure, there is no `teamId` to
+   * check with, so the warm-up check is skipped outright (fail-open, same reasoning as every
+   * other best-effort call here).
+   */
   private loadSessionDetailBestEffort(): void {
     this.retroApi.getById(this.sessionId()).subscribe({
       next: detail => {
@@ -652,6 +732,7 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
         this.startCountdownIfConfigured(detail);
         this.loadColumns();
         this.loadTeamMembers(detail.teamId);
+        this.checkPendingActions(detail.teamId);
         if (detail.currentPhase === 'VOTE') {
           // Joining/reconnecting directly into an already-open vote phase (e.g. page reload) —
           // learn the caller's balance immediately rather than waiting for a `PHASE_CHANGED`
@@ -664,6 +745,7 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
         // works fully from realtime events alone, just without a countdown display, and
         // loadColumns() falls back to a generic column set (no known format to look up).
         this.loadColumns();
+        this.warmupResolved.set(true);
       },
     });
   }
@@ -730,6 +812,30 @@ export class SessionRoomComponent implements OnInit, OnDestroy {
       next: members => this.teamMembers.set(members),
       error: () => {
         // Best-effort only — see this method's TSDoc.
+      },
+    });
+  }
+
+  /**
+   * Checks whether the session's team has any currently open retrospective action from a past
+   * session (US20.3.2) — if so, the warm-up panel is shown before the phase-specific interface;
+   * otherwise it is skipped automatically, with no flash of an empty panel (gated by {@link
+   * warmupResolved}/{@link showWarmup}). Never blocks indefinitely: any failure here is treated
+   * the same as an empty list — fail-open, matching every other best-effort call in this
+   * component that is subject to the class-level auth gap.
+   *
+   * @param teamId the session's team, resolved from {@link sessionDetail}
+   */
+  private checkPendingActions(teamId: number): void {
+    this.retroApi.listPendingActions(teamId).subscribe({
+      next: actions => {
+        this.pendingActions.set(actions);
+        this.showWarmup.set(actions.length > 0);
+        this.warmupResolved.set(true);
+      },
+      error: () => {
+        this.showWarmup.set(false);
+        this.warmupResolved.set(true);
       },
     });
   }

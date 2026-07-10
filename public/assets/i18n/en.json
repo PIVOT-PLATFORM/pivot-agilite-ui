@@ -250,7 +250,23 @@
         "glad": "Glad",
         "general": "General"
       },
-      "viewTeamActions": "View the team's actions"
+      "viewTeamActions": "View the team's actions",
+      "warmup": {
+        "checking": "Checking the team's ongoing actions…",
+        "heading": "Team's ongoing actions",
+        "intro": "These actions, from a previous retrospective, are still open. Mark them done or abandoned if needed before starting.",
+        "ownerPrefix": "Owner:",
+        "unknownOwner": "Unassigned",
+        "dueDatePrefix": "Due date:",
+        "noDueDate": "No due date",
+        "markDone": "Mark done",
+        "markDoneLabel": "Mark done — {{ title }}",
+        "markAbandoned": "Mark abandoned",
+        "markAbandonedLabel": "Mark abandoned — {{ title }}",
+        "updateError": "The status change failed. Please try again.",
+        "allResolved": "All actions have been resolved.",
+        "continue": "Continue to the retrospective"
+      }
     }
   },
   "scrumPoker": {

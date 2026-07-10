@@ -718,6 +718,67 @@ describe('RetroApiService', () => {
     });
   });
 
+  describe('listPendingActions', () => {
+    const teamId = 42;
+    const response: RetroActionResponse[] = [
+      {
+        id: 'action-1',
+        sessionId: '11111111-1111-1111-1111-111111111111',
+        teamId,
+        title: 'Great job',
+        ownerUserId: 7,
+        dueDate: '2026-07-20',
+        sourceCardId: 'card-1',
+        status: 'A_FAIRE',
+      },
+    ];
+
+    it('GETs /retro/teams/{teamId}/retro/pending-actions and returns the pending actions', () => {
+      let result: RetroActionResponse[] | undefined;
+
+      service.listPendingActions(teamId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/teams/${teamId}/retro/pending-actions`);
+      expect(req.request.method).toBe('GET');
+      req.flush(response);
+
+      expect(result).toEqual(response);
+    });
+
+    it('returns an empty list (never 404) when the team has no pending action', () => {
+      let result: RetroActionResponse[] | undefined;
+
+      service.listPendingActions(teamId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/teams/${teamId}/retro/pending-actions`);
+      req.flush([]);
+
+      expect(result).toEqual([]);
+    });
+
+    it('propagates a 404 error (caller not a member of teamId)', () => {
+      let error: unknown;
+
+      service.listPendingActions(teamId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/teams/${teamId}/retro/pending-actions`);
+      req.flush({ title: 'Not Found', status: 404 }, { status: 404, statusText: 'Not Found' });
+
+      expect((error as { status: number }).status).toBe(404);
+    });
+
+    it('propagates a 401 error (expected in this bootstrap phase — no bearer token attached)', () => {
+      let error: unknown;
+
+      service.listPendingActions(teamId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/teams/${teamId}/retro/pending-actions`);
+      req.flush({ title: 'Unauthorized', status: 401 }, { status: 401, statusText: 'Unauthorized' });
+
+      expect((error as { status: number }).status).toBe(401);
+    });
+  });
+
   describe('listTeamMembers', () => {
     const teamId = 42;
     const response: RetroTeamMemberResponse[] = [{ id: 1, userId: 7, displayName: 'Alex' }];

@@ -7,6 +7,65 @@
     </p>
   } @else if (joinErrorKey(); as errorKey) {
     <p class="session-room__error" role="alert">{{ errorKey | transloco }}</p>
+  } @else if (!warmupResolved()) {
+    <p class="session-room__status" role="status" aria-live="polite">
+      {{ 'retro.sessionRoom.warmup.checking' | transloco }}
+    </p>
+  } @else if (showWarmup()) {
+    <section class="session-room__warmup session-room__column" aria-labelledby="warmup-heading">
+      <h2 id="warmup-heading">{{ 'retro.sessionRoom.warmup.heading' | transloco }}</h2>
+      <p class="session-room__fallback-note">{{ 'retro.sessionRoom.warmup.intro' | transloco }}</p>
+
+      <ul class="session-room__card-list">
+        @for (action of pendingActions(); track action.id) {
+          <li class="session-room__card session-room__action-item">
+            <span class="session-room__action-item-title">{{ action.title }}</span>
+            <span class="session-room__action-item-owner">
+              {{ 'retro.sessionRoom.warmup.ownerPrefix' | transloco }}
+              {{ ownerDisplayName(action.ownerUserId) ?? ('retro.sessionRoom.warmup.unknownOwner' | transloco) }}
+            </span>
+            <span class="session-room__action-item-due-date">
+              {{ 'retro.sessionRoom.warmup.dueDatePrefix' | transloco }}
+              {{ action.dueDate ?? ('retro.sessionRoom.warmup.noDueDate' | transloco) }}
+            </span>
+            <span class="session-room__action-item-status">
+              {{ 'retro.sessionRoom.action.status.' + action.status | transloco }}
+            </span>
+            <div class="session-room__vote-controls">
+              <button
+                type="button"
+                class="session-room__vote-button"
+                [disabled]="warmupUpdatingActionId() === action.id"
+                [attr.aria-label]="'retro.sessionRoom.warmup.markDoneLabel' | transloco : { title: action.title }"
+                (click)="markPendingAction(action, 'TERMINEE')"
+              >
+                {{ 'retro.sessionRoom.warmup.markDone' | transloco }}
+              </button>
+              <button
+                type="button"
+                class="session-room__vote-button"
+                [disabled]="warmupUpdatingActionId() === action.id"
+                [attr.aria-label]="'retro.sessionRoom.warmup.markAbandonedLabel' | transloco : { title: action.title }"
+                (click)="markPendingAction(action, 'ABANDONNEE')"
+              >
+                {{ 'retro.sessionRoom.warmup.markAbandoned' | transloco }}
+              </button>
+              @if (warmupErrorActionId() === action.id) {
+                <p class="session-room__error" role="alert">{{ 'retro.sessionRoom.warmup.updateError' | transloco }}</p>
+              }
+            </div>
+          </li>
+        } @empty {
+          <li class="session-room__card session-room__card--empty">
+            {{ 'retro.sessionRoom.warmup.allResolved' | transloco }}
+          </li>
+        }
+      </ul>
+
+      <button type="button" class="session-room__create-action-button" (click)="dismissWarmup()">
+        {{ 'retro.sessionRoom.warmup.continue' | transloco }}
+      </button>
+    </section>
   } @else {
     <div class="session-room__meta">
       <p class="session-room__ws-status" role="status" aria-live="polite">

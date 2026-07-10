@@ -48,6 +48,10 @@ import {
  * listTeamMembers} (US20.3.1, `/retro/sessions/{id}/actions`, `/retro/actions/{actionId}`,
  * `/retro/teams/{teamId}/actions`, `/teams/{teamId}/members`) are all subject to the exact same
  * auth gap as {@link create} — same reasoning, same fix once `@pivot/ui-core` is wired in.
+ *
+ * {@link listPendingActions} (US20.3.2, `/retro/teams/{teamId}/retro/pending-actions`) is subject
+ * to the exact same auth gap as {@link create} — same reasoning, same fix once `@pivot/ui-core`
+ * is wired in.
  */
 @Injectable({ providedIn: 'root' })
 export class RetroApiService {
@@ -248,6 +252,23 @@ export class RetroApiService {
       params = params.set('sort', filter.sort);
     }
     return this.http.get<RetroActionResponse[]>(`${environment.apiUrl}/retro/teams/${teamId}/actions`, { params });
+  }
+
+  /**
+   * Lists a team's currently open retrospective actions (`A_FAIRE`/`EN_COURS` only), across
+   * every past session (US20.3.2) — feeds the "warm-up" panel shown when opening a retrospective
+   * session, before the `CONTRIBUTION` phase's own interface is shown. Sorted by due date
+   * ascending, actions with no due date last (server-side — no client-side re-sort needed).
+   * Never 404s for a team the caller belongs to: 200 with an empty list when nothing is pending.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @param teamId the session's team, resolved from {@link RetroSessionResponse.teamId}
+   * @throws HttpErrorResponse 401 no/invalid token (expected today, see class TSDoc), 404 caller
+   *   not a member of `teamId` or team belongs to another tenant.
+   */
+  listPendingActions(teamId: number): Observable<RetroActionResponse[]> {
+    return this.http.get<RetroActionResponse[]>(`${environment.apiUrl}/retro/teams/${teamId}/retro/pending-actions`);
   }
 
   /**

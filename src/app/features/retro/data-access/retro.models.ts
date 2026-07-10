@@ -369,7 +369,10 @@ export interface CreateRetroActionRequest {
 /**
  * Response body for `POST /retro/sessions/{id}/actions` (201 Created) and every action returned
  * by `GET /retro/teams/{teamId}/actions` / carried by {@link ActionCreatedEvent} / returned by
- * `PATCH /retro/actions/{actionId}` (US20.3.1).
+ * `PATCH /retro/actions/{actionId}` (US20.3.1) / returned by `GET
+ * /retro/teams/{teamId}/retro/pending-actions` (US20.3.2, the "warm-up" panel's action list —
+ * same shape, just pre-filtered server-side to `A_FAIRE`/`EN_COURS` and sorted by due date
+ * ascending, actions with no due date last).
  */
 export interface RetroActionResponse {
   /** UUID. */

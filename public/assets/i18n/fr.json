@@ -250,7 +250,23 @@
         "glad": "Content",
         "general": "Général"
       },
-      "viewTeamActions": "Voir les actions de l'équipe"
+      "viewTeamActions": "Voir les actions de l'équipe",
+      "warmup": {
+        "checking": "Vérification des actions en cours de l'équipe…",
+        "heading": "Actions en cours de l'équipe",
+        "intro": "Ces actions, issues d'une rétrospective précédente, sont encore en cours. Marquez-les comme terminées ou abandonnées si besoin avant de commencer.",
+        "ownerPrefix": "Responsable :",
+        "unknownOwner": "Non assigné",
+        "dueDatePrefix": "Échéance :",
+        "noDueDate": "Aucune échéance",
+        "markDone": "Marquer terminée",
+        "markDoneLabel": "Marquer terminée — {{ title }}",
+        "markAbandoned": "Marquer abandonnée",
+        "markAbandonedLabel": "Marquer abandonnée — {{ title }}",
+        "updateError": "Le changement de statut a échoué. Veuillez réessayer.",
+        "allResolved": "Toutes les actions ont été traitées.",
+        "continue": "Continuer vers la rétrospective"
+      }
     }
   },
   "scrumPoker": {
