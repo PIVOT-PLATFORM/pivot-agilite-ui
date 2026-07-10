@@ -8,8 +8,9 @@
  */
 
 /**
- * Retrospective format catalogue. The detailed per-format column/icon catalogue
- * (US20.2.1) is out of scope here — this US only references the enum value as-is.
+ * Retrospective format catalogue. The 4 system format enum values plus `'CUSTOM'` — the
+ * detailed per-format column/icon catalogue (US20.2.1) lives in {@link RetroFormatDefinition}
+ * / {@link RetroFormatColumn} below.
  */
 export type RetroFormat = 'START_STOP_CONTINUE' | 'KIF_KAF' | 'FOUR_L' | 'MAD_SAD_GLAD' | 'CUSTOM';
 
@@ -42,6 +43,12 @@ export interface CreateRetroSessionRequest {
   actionTimerSeconds?: number;
   /** Optional — must be > 0 if present. Defaults to 3 server-side. */
   voteCountPerParticipant?: number;
+  /**
+   * UUID of a tenant custom format (see {@link RetroFormatDefinition.key}), US20.2.1. Send
+   * **only** when `format === 'CUSTOM'` — never alongside a system format value (backend
+   * rejects that combination with `CUSTOM_FORMAT_ID_NOT_ALLOWED`).
+   */
+  customFormatId?: string;
 }
 
 /** Response body for `POST /retro/sessions` (201 Created). */
@@ -64,6 +71,59 @@ export interface RetroSessionResponse {
   expiresAt: string;
   /** ISO instant. */
   createdAt: string;
+  /** UUID of the tenant custom format used. Present when `format === 'CUSTOM'`, absent otherwise. */
+  customFormatId?: string;
+}
+
+/**
+ * A single column of a retrospective format (system or tenant custom), US20.2.1.
+ */
+export interface RetroFormatColumn {
+  /** Stable machine key — a fixed slug (e.g. `START`) for system formats, a
+   * server-generated slug for custom ones. */
+  key: string;
+  label: string;
+  /** `null` when not set (always present for the 4 system formats; optional for custom ones). */
+  color: string | null;
+  description: string | null;
+  icon: string | null;
+}
+
+/**
+ * A retrospective format definition, as returned by `GET /retro/formats` (US20.2.1) — one of
+ * the 4 fixed system formats, or a tenant-scoped custom format.
+ */
+export interface RetroFormatDefinition {
+  /** One of the 4 {@link RetroFormat} system enum values, or a UUID for a custom format. */
+  key: string;
+  label: string;
+  /** `true` for the 4 built-in system formats, `false` for a tenant custom format. */
+  system: boolean;
+  columns: RetroFormatColumn[];
+}
+
+/** Response body for `GET /retro/formats`. */
+export interface RetroFormatsResponse {
+  /** The 4 system formats (fixed order), followed by the caller's tenant's own custom
+   * formats, if any. */
+  formats: RetroFormatDefinition[];
+}
+
+/** A single column in a `POST /retro/formats` request. Only `label` is required. */
+export interface CreateRetroFormatColumnRequest {
+  /** Required, 1-40 characters. */
+  label: string;
+  color?: string;
+  description?: string;
+  icon?: string;
+}
+
+/** Request body for `POST /retro/formats` — creates a tenant-scoped custom format. */
+export interface CreateRetroFormatRequest {
+  /** Required, 1-60 characters. */
+  label: string;
+  /** 2 to 8 entries. */
+  columns: CreateRetroFormatColumnRequest[];
 }
 
 /**
@@ -89,6 +149,12 @@ export interface RetroProblemDetail {
   title?: string;
   status?: number;
   detail?: string;
-  /** Machine-readable error code, e.g. `INVALID_TITLE`, `INVALID_FORMAT`, `INVALID_TIMER`. */
+  /**
+   * Machine-readable error code, e.g. `INVALID_TITLE`, `INVALID_FORMAT`, `INVALID_TIMER`,
+   * `INVALID_VOTE_COUNT` (`POST /retro/sessions`); `INVALID_FORMAT_LABEL`,
+   * `CUSTOM_FORMAT_INVALID_COLUMN_COUNT`, `INVALID_COLUMN_LABEL` (`POST /retro/formats`,
+   * US20.2.1); `CUSTOM_FORMAT_ID_REQUIRED`, `CUSTOM_FORMAT_NOT_FOUND` (404),
+   * `CUSTOM_FORMAT_ID_NOT_ALLOWED` (`POST /retro/sessions` with a custom format, US20.2.1).
+   */
   code?: string;
 }

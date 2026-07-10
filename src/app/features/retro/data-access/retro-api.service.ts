@@ -3,7 +3,10 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
+  CreateRetroFormatRequest,
   CreateRetroSessionRequest,
+  RetroFormatDefinition,
+  RetroFormatsResponse,
   RetroSessionJoinResponse,
   RetroSessionResponse,
 } from './retro.models';
@@ -24,6 +27,10 @@ import {
  *
  * {@link resolveByJoinCode} has no such gap — it calls an intentionally public,
  * unauthenticated backend endpoint and works end-to-end today.
+ *
+ * {@link listFormats} and {@link createFormat} (US20.2.1, `/retro/formats`) are subject to
+ * the exact same auth gap as {@link create} — same reasoning, same fix once
+ * `@pivot/ui-core` is wired in.
  */
 @Injectable({ providedIn: 'root' })
 export class RetroApiService {
@@ -36,10 +43,12 @@ export class RetroApiService {
    *
    * See the class-level TSDoc for the current auth gap affecting this call.
    *
-   * @throws HttpErrorResponse 400 invalid title/format/timer/voteCount (`ProblemDetail.code`
-   *   e.g. `INVALID_TITLE`/`INVALID_FORMAT`/`INVALID_TIMER`), 401 no/invalid token
-   *   (expected today, see class TSDoc), 403 caller not a team member, 404 team not
-   *   found or belongs to another tenant.
+   * @throws HttpErrorResponse 400 invalid title/format/timer/voteCount/customFormatId
+   *   (`ProblemDetail.code` e.g. `INVALID_TITLE`/`INVALID_FORMAT`/`INVALID_TIMER`/
+   *   `CUSTOM_FORMAT_ID_REQUIRED`/`CUSTOM_FORMAT_ID_NOT_ALLOWED`, US20.2.1), 401 no/invalid
+   *   token (expected today, see class TSDoc), 403 caller not a team member, 404 team not
+   *   found or belongs to another tenant, or (US20.2.1) `customFormatId` not found /
+   *   belongs to another tenant (`CUSTOM_FORMAT_NOT_FOUND`).
    */
   create(request: CreateRetroSessionRequest): Observable<RetroSessionResponse> {
     return this.http.post<RetroSessionResponse>(`${environment.apiUrl}/retro/sessions`, request);
@@ -55,5 +64,33 @@ export class RetroApiService {
     return this.http.get<RetroSessionJoinResponse>(
       `${environment.apiUrl}/retro/sessions/join/${joinCode}`,
     );
+  }
+
+  /**
+   * Lists the retrospective format catalogue (US20.2.1): the 4 system formats (fixed order),
+   * followed by the caller's tenant's own custom formats, if any.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @throws HttpErrorResponse 401 no/invalid token (expected today, see class TSDoc).
+   */
+  listFormats(): Observable<RetroFormatsResponse> {
+    return this.http.get<RetroFormatsResponse>(`${environment.apiUrl}/retro/formats`);
+  }
+
+  /**
+   * Creates a tenant-scoped custom retrospective format (US20.2.1). The returned
+   * {@link RetroFormatDefinition.key} (a server-generated UUID) is the value to send as
+   * `customFormatId` in a subsequent {@link create} call with `format: 'CUSTOM'`.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @throws HttpErrorResponse 400 invalid label, invalid column count (0/1/>8 columns), or
+   *   invalid column label (`ProblemDetail.code` `INVALID_FORMAT_LABEL` /
+   *   `CUSTOM_FORMAT_INVALID_COLUMN_COUNT` / `INVALID_COLUMN_LABEL`), 401 no/invalid token
+   *   (expected today, see class TSDoc).
+   */
+  createFormat(request: CreateRetroFormatRequest): Observable<RetroFormatDefinition> {
+    return this.http.post<RetroFormatDefinition>(`${environment.apiUrl}/retro/formats`, request);
   }
 }
