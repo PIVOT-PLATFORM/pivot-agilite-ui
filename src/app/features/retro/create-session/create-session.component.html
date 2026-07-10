@@ -55,27 +55,148 @@
         }
       </div>
 
-      <div class="create-session__field">
-        <label class="create-session__label" for="retro-format">{{
-          'retro.createSession.form.formatLabel' | transloco
-        }}</label>
-        <select
-          id="retro-format"
-          class="create-session__input"
-          formControlName="format"
-          [attr.aria-invalid]="form.controls.format.invalid && form.controls.format.touched"
-        >
-          <option value="" disabled>{{ 'retro.createSession.form.formatPlaceholder' | transloco }}</option>
-          @for (fmt of formats; track fmt) {
-            <option [value]="fmt">{{ 'retro.createSession.form.format.' + fmt | transloco }}</option>
+      <fieldset class="create-session__fieldset create-session__format-picker">
+        <legend>{{ 'retro.createSession.form.formatLabel' | transloco }}</legend>
+
+        @switch (formatsState().status) {
+          @case ('loading') {
+            <p role="status">{{ 'retro.createSession.formatsLoading' | transloco }}</p>
           }
-        </select>
+          @case ('error') {
+            <div role="alert" class="create-session__format-error">
+              <p>{{ 'retro.createSession.formatsError' | transloco }}</p>
+              <button type="button" class="create-session__format-retry" (click)="loadFormats()">
+                {{ 'retro.createSession.formatsRetry' | transloco }}
+              </button>
+            </div>
+          }
+          @case ('loaded') {
+            <div class="create-session__format-cards">
+              @for (fmt of systemFormats(); track fmt.key) {
+                <div class="create-session__format-card">
+                  <input
+                    type="radio"
+                    class="create-session__format-radio"
+                    [id]="'retro-format-' + fmt.key"
+                    formControlName="format"
+                    [value]="fmt.key"
+                  />
+                  <label class="create-session__format-label" [for]="'retro-format-' + fmt.key">
+                    <span class="create-session__label">{{ fmt.label }}</span>
+                    <span class="create-session__hint">{{ columnPreview(fmt) }}</span>
+                    <span class="create-session__sr-only">{{
+                      'retro.createSession.form.formatColumnCount' | transloco: { count: fmt.columns.length }
+                    }}</span>
+                  </label>
+                </div>
+              }
+
+              <div class="create-session__format-card">
+                <input
+                  type="radio"
+                  class="create-session__format-radio"
+                  id="retro-format-custom"
+                  formControlName="format"
+                  value="CUSTOM"
+                />
+                <label class="create-session__format-label" for="retro-format-custom">
+                  <span class="create-session__label">{{ 'retro.createSession.form.format.CUSTOM' | transloco }}</span>
+                  <span class="create-session__hint">{{ 'retro.createSession.customFormat.cardHint' | transloco }}</span>
+                </label>
+              </div>
+            </div>
+          }
+        }
+
         @if (form.controls.format.invalid && form.controls.format.touched) {
           <p class="create-session__error" role="alert">
             {{ 'retro.createSession.form.formatRequired' | transloco }}
           </p>
         }
-      </div>
+      </fieldset>
+
+      @if (form.controls.format.value === 'CUSTOM') {
+        <fieldset class="create-session__fieldset create-session__custom-format">
+          <legend>{{ 'retro.createSession.customFormat.legend' | transloco }}</legend>
+
+          <div class="create-session__field">
+            <label class="create-session__label" for="retro-custom-format-label">{{
+              'retro.createSession.customFormat.labelField' | transloco
+            }}</label>
+            <input
+              id="retro-custom-format-label"
+              type="text"
+              maxlength="60"
+              class="create-session__input"
+              [formControl]="customFormatLabel"
+              [attr.aria-invalid]="customFormatLabel.invalid && customFormatLabel.touched"
+              [attr.aria-describedby]="
+                customFormatLabel.invalid && customFormatLabel.touched ? 'retro-custom-format-label-error' : null
+              "
+            />
+            @if (customFormatLabel.invalid && customFormatLabel.touched) {
+              <p class="create-session__error" id="retro-custom-format-label-error" role="alert">
+                @if (customFormatLabel.hasError('required')) {
+                  {{ 'retro.createSession.customFormat.labelRequired' | transloco }}
+                } @else if (customFormatLabel.hasError('maxlength')) {
+                  {{ 'retro.createSession.customFormat.labelMaxLength' | transloco }}
+                }
+              </p>
+            }
+          </div>
+
+          <p class="create-session__hint" id="retro-custom-columns-hint">
+            {{ 'retro.createSession.customFormat.columnsHint' | transloco }}
+          </p>
+
+          <ul class="create-session__custom-columns" aria-describedby="retro-custom-columns-hint">
+            @for (col of customColumns.controls; track col; let i = $index) {
+              <li class="create-session__field">
+                <label class="create-session__label" [for]="'retro-custom-column-' + i">{{
+                  'retro.createSession.customFormat.columnLabel' | transloco: { position: i + 1 }
+                }}</label>
+                <input
+                  [id]="'retro-custom-column-' + i"
+                  type="text"
+                  maxlength="40"
+                  class="create-session__input"
+                  [formControl]="col"
+                  [attr.aria-invalid]="col.invalid && col.touched"
+                  [attr.aria-describedby]="col.invalid && col.touched ? 'retro-custom-column-' + i + '-error' : null"
+                />
+                @if (col.invalid && col.touched) {
+                  <p class="create-session__error" [id]="'retro-custom-column-' + i + '-error'" role="alert">
+                    @if (col.hasError('required')) {
+                      {{ 'retro.createSession.customFormat.columnRequired' | transloco }}
+                    } @else if (col.hasError('maxlength')) {
+                      {{ 'retro.createSession.customFormat.columnMaxLength' | transloco }}
+                    }
+                  </p>
+                }
+                <button
+                  type="button"
+                  class="create-session__remove-column"
+                  [disabled]="customColumns.length <= minCustomColumns"
+                  (click)="removeColumn(i)"
+                >
+                  {{ 'retro.createSession.customFormat.removeColumn' | transloco }}
+                </button>
+              </li>
+            }
+          </ul>
+
+          <button
+            type="button"
+            class="create-session__add-column"
+            [disabled]="customColumns.length >= maxCustomColumns"
+            (click)="addColumn()"
+          >
+            {{ 'retro.createSession.customFormat.addColumn' | transloco }}
+          </button>
+
+          <p class="create-session__sr-only" aria-live="polite">{{ columnAnnouncement() }}</p>
+        </fieldset>
+      }
 
       <div class="create-session__field">
         <label class="create-session__label" for="retro-sprint-ref">{{
@@ -209,7 +330,12 @@
         <dt>{{ 'retro.createSession.result.titleLabel' | transloco }}</dt>
         <dd>{{ created.title }}</dd>
         <dt>{{ 'retro.createSession.result.formatLabel' | transloco }}</dt>
-        <dd>{{ 'retro.createSession.form.format.' + created.format | transloco }}</dd>
+        <dd>
+          {{ 'retro.createSession.form.format.' + created.format | transloco }}
+          @if (created.format === 'CUSTOM' && lastCustomFormatLabel(); as customLabel) {
+            <span> — {{ customLabel }}</span>
+          }
+        </dd>
         <dt>{{ 'retro.createSession.result.phaseLabel' | transloco }}</dt>
         <dd>{{ 'retro.createSession.result.phase.' + created.currentPhase | transloco }}</dd>
         <dt>{{ 'retro.createSession.result.expiresAtLabel' | transloco }}</dt>

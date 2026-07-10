@@ -81,7 +81,8 @@
         "voteCountLabel": "Nombre de votes par participant (optionnel, défaut 3)",
         "voteCountPositive": "Le nombre de votes doit être un nombre entier strictement positif.",
         "submit": "Créer la session",
-        "submitting": "Création en cours…"
+        "submitting": "Création en cours…",
+        "formatColumnCount": "Comporte {{count}} colonnes."
       },
       "result": {
         "heading": "Session créée",
@@ -110,7 +111,31 @@
         "teamNotFound": "Équipe introuvable.",
         "teamAccessDenied": "Vous n'êtes pas membre de cette équipe.",
         "unauthorized": "Authentification requise — fonctionnalité non disponible tant que le module d'authentification (@pivot/ui-core) n'est pas intégré.",
-        "generic": "Une erreur est survenue lors de la création de la session. Veuillez réessayer."
+        "generic": "Une erreur est survenue lors de la création de la session. Veuillez réessayer.",
+        "CUSTOM_FORMAT_ID_REQUIRED": "Un format personnalisé doit être sélectionné ou créé.",
+        "CUSTOM_FORMAT_NOT_FOUND": "Le format personnalisé sélectionné est introuvable.",
+        "CUSTOM_FORMAT_ID_NOT_ALLOWED": "Le format personnalisé ne doit être fourni que pour le format « Personnalisé ».",
+        "INVALID_FORMAT_LABEL": "Le nom du format personnalisé est invalide.",
+        "CUSTOM_FORMAT_INVALID_COLUMN_COUNT": "Le format personnalisé doit comporter entre 2 et 8 colonnes.",
+        "INVALID_COLUMN_LABEL": "Le libellé d'une colonne est invalide."
+      },
+      "formatsLoading": "Chargement des formats de rétrospective…",
+      "formatsError": "Impossible de charger les formats de rétrospective.",
+      "formatsRetry": "Réessayer",
+      "customFormat": {
+        "cardHint": "Créer un format personnalisé (2 à 8 colonnes)",
+        "legend": "Format personnalisé",
+        "labelField": "Nom du format personnalisé",
+        "labelRequired": "Le nom du format personnalisé est requis.",
+        "labelMaxLength": "Le nom du format personnalisé doit contenir 60 caractères maximum.",
+        "columnsHint": "Entre 2 et 8 colonnes, chacune avec un libellé.",
+        "columnLabel": "Libellé de la colonne {{position}}",
+        "columnRequired": "Le libellé de la colonne est requis.",
+        "columnMaxLength": "Le libellé de la colonne doit contenir 40 caractères maximum.",
+        "addColumn": "Ajouter une colonne",
+        "removeColumn": "Supprimer cette colonne",
+        "columnAdded": "Colonne {{position}} ajoutée.",
+        "columnRemoved": "Colonne {{position}} supprimée."
       }
     }
   },
