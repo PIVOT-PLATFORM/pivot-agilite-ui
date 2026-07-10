@@ -18,51 +18,175 @@
         {{ 'scrumPoker.joinRoom.joinAnother' | transloco }}
       </button>
     </div>
-  } @else {
-    <form class="join-room__form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
-      <div class="join-room__field">
-        <label class="join-room__label" for="join-room-code">
-          {{ 'scrumPoker.joinRoom.codeLabel' | transloco }}
-        </label>
-        <input
-          id="join-room-code"
-          class="join-room__input"
-          type="text"
-          formControlName="code"
-          autocomplete="off"
-          [attr.aria-invalid]="form.controls.code.invalid && form.controls.code.touched"
-          [attr.aria-describedby]="
-            form.controls.code.invalid && form.controls.code.touched ? 'join-room-code-error' : null
-          "
-        />
-        @if (form.controls.code.invalid && form.controls.code.touched) {
-          <p id="join-room-code-error" class="join-room__error" role="alert">
-            @if (form.controls.code.hasError('required')) {
-              {{ 'scrumPoker.joinRoom.codeRequired' | transloco }}
-            } @else if (form.controls.code.hasError('minlength') || form.controls.code.hasError('maxlength')) {
-              {{ 'scrumPoker.joinRoom.codeInvalidLength' | transloco }}
-            }
-          </p>
-        }
-      </div>
+  } @else if (joinedAnonymousRoom(); as anonymousRoom) {
+    <div class="join-room__success" role="status" aria-live="polite">
+      <p>{{ 'scrumPoker.joinRoom.success' | transloco }}</p>
 
-      <button
-        type="submit"
-        class="join-room__submit"
-        [disabled]="submitting()"
-        [attr.aria-busy]="submitting()"
-      >
-        {{
-          (submitting()
-            ? 'scrumPoker.joinRoom.submitting'
-            : 'scrumPoker.joinRoom.submit'
-          ) | transloco
-        }}
-      </button>
+      <dl class="join-room__summary">
+        <dt>{{ 'scrumPoker.joinRoom.nameLabel' | transloco }}</dt>
+        <dd>{{ anonymousRoom.name }}</dd>
+        <dt>{{ 'scrumPoker.joinRoom.pseudonymLabel' | transloco }}</dt>
+        <dd>{{ anonymousRoom.pseudonym }}</dd>
+      </dl>
 
-      @if (errorMessageKey(); as errorKey) {
-        <p class="join-room__error" role="alert">{{ errorKey | transloco }}</p>
+      <p class="join-room__ws-status" role="status" aria-live="polite">
+        {{ 'scrumPoker.joinRoom.wsStatus.' + roomWs.status() | transloco }}
+      </p>
+
+      @if (anonymousErrorMessageKey(); as anonymousErrorKey) {
+        <p class="join-room__error" role="alert">{{ anonymousErrorKey | transloco }}</p>
       }
-    </form>
+
+      <button type="button" class="join-room__another" (click)="joinAnotherAnonymous()">
+        {{ 'scrumPoker.joinRoom.joinAnother' | transloco }}
+      </button>
+    </div>
+  } @else {
+    <div class="join-room__mode-toggle" role="group" [attr.aria-label]="'scrumPoker.joinRoom.modeToggleLabel' | transloco">
+      <button
+        type="button"
+        class="join-room__mode-button"
+        [class.join-room__mode-button--active]="mode() === 'authenticated'"
+        [attr.aria-pressed]="mode() === 'authenticated'"
+        (click)="switchMode('authenticated')"
+      >
+        {{ 'scrumPoker.joinRoom.modeAuthenticated' | transloco }}
+      </button>
+      <button
+        type="button"
+        class="join-room__mode-button"
+        [class.join-room__mode-button--active]="mode() === 'anonymous'"
+        [attr.aria-pressed]="mode() === 'anonymous'"
+        (click)="switchMode('anonymous')"
+      >
+        {{ 'scrumPoker.joinRoom.modeAnonymous' | transloco }}
+      </button>
+    </div>
+
+    @if (mode() === 'authenticated') {
+      <form class="join-room__form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="join-room__field">
+          <label class="join-room__label" for="join-room-code">
+            {{ 'scrumPoker.joinRoom.codeLabel' | transloco }}
+          </label>
+          <input
+            id="join-room-code"
+            class="join-room__input"
+            type="text"
+            formControlName="code"
+            autocomplete="off"
+            [attr.aria-invalid]="form.controls.code.invalid && form.controls.code.touched"
+            [attr.aria-describedby]="
+              form.controls.code.invalid && form.controls.code.touched ? 'join-room-code-error' : null
+            "
+          />
+          @if (form.controls.code.invalid && form.controls.code.touched) {
+            <p id="join-room-code-error" class="join-room__error" role="alert">
+              @if (form.controls.code.hasError('required')) {
+                {{ 'scrumPoker.joinRoom.codeRequired' | transloco }}
+              } @else if (form.controls.code.hasError('minlength') || form.controls.code.hasError('maxlength')) {
+                {{ 'scrumPoker.joinRoom.codeInvalidLength' | transloco }}
+              }
+            </p>
+          }
+        </div>
+
+        <button
+          type="submit"
+          class="join-room__submit"
+          [disabled]="submitting()"
+          [attr.aria-busy]="submitting()"
+        >
+          {{
+            (submitting()
+              ? 'scrumPoker.joinRoom.submitting'
+              : 'scrumPoker.joinRoom.submit'
+            ) | transloco
+          }}
+        </button>
+
+        @if (errorMessageKey(); as errorKey) {
+          <p class="join-room__error" role="alert">{{ errorKey | transloco }}</p>
+        }
+      </form>
+    } @else {
+      <form class="join-room__form" [formGroup]="anonymousForm" (ngSubmit)="onSubmitAnonymous()" novalidate>
+        <div class="join-room__field">
+          <label class="join-room__label" for="join-room-anonymous-code">
+            {{ 'scrumPoker.joinRoom.codeLabel' | transloco }}
+          </label>
+          <input
+            id="join-room-anonymous-code"
+            class="join-room__input"
+            type="text"
+            formControlName="code"
+            autocomplete="off"
+            [attr.aria-invalid]="anonymousForm.controls.code.invalid && anonymousForm.controls.code.touched"
+            [attr.aria-describedby]="
+              anonymousForm.controls.code.invalid && anonymousForm.controls.code.touched
+                ? 'join-room-anonymous-code-error'
+                : null
+            "
+          />
+          @if (anonymousForm.controls.code.invalid && anonymousForm.controls.code.touched) {
+            <p id="join-room-anonymous-code-error" class="join-room__error" role="alert">
+              @if (anonymousForm.controls.code.hasError('required')) {
+                {{ 'scrumPoker.joinRoom.codeRequired' | transloco }}
+              } @else if (
+                anonymousForm.controls.code.hasError('minlength') || anonymousForm.controls.code.hasError('maxlength')
+              ) {
+                {{ 'scrumPoker.joinRoom.codeInvalidLength' | transloco }}
+              }
+            </p>
+          }
+        </div>
+
+        <div class="join-room__field">
+          <label class="join-room__label" for="join-room-anonymous-pseudonym">
+            {{ 'scrumPoker.joinRoom.pseudonymLabel' | transloco }}
+            <span class="join-room__optional">{{ 'scrumPoker.joinRoom.optional' | transloco }}</span>
+          </label>
+          <input
+            id="join-room-anonymous-pseudonym"
+            class="join-room__input join-room__input--pseudonym"
+            type="text"
+            formControlName="pseudonym"
+            autocomplete="off"
+            aria-required="false"
+            [attr.aria-invalid]="
+              anonymousForm.controls.pseudonym.invalid && anonymousForm.controls.pseudonym.touched
+            "
+            [attr.aria-describedby]="
+              anonymousForm.controls.pseudonym.invalid && anonymousForm.controls.pseudonym.touched
+                ? 'join-room-anonymous-pseudonym-error'
+                : null
+            "
+          />
+          @if (anonymousForm.controls.pseudonym.invalid && anonymousForm.controls.pseudonym.touched) {
+            <p id="join-room-anonymous-pseudonym-error" class="join-room__error" role="alert">
+              {{ 'scrumPoker.joinRoom.errors.invalidPseudonym' | transloco }}
+            </p>
+          }
+        </div>
+
+        <button
+          type="submit"
+          class="join-room__submit"
+          [disabled]="anonymousSubmitting()"
+          [attr.aria-busy]="anonymousSubmitting()"
+        >
+          {{
+            (anonymousSubmitting()
+              ? 'scrumPoker.joinRoom.submitting'
+              : 'scrumPoker.joinRoom.submitAnonymous'
+            ) | transloco
+          }}
+        </button>
+
+        @if (anonymousErrorMessageKey(); as anonymousErrorKey) {
+          <p class="join-room__error" role="alert">{{ anonymousErrorKey | transloco }}</p>
+        }
+      </form>
+    }
   }
 </section>

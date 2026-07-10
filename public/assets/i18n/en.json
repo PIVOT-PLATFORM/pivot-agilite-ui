@@ -232,9 +232,15 @@
       "codeRequired": "The code is required.",
       "codeInvalidLength": "The code must be exactly 6 characters.",
       "submit": "Join room",
+      "submitAnonymous": "Join without an account",
       "submitting": "Joining…",
       "success": "Room joined successfully.",
       "nameLabel": "Room name",
+      "pseudonymLabel": "Display name",
+      "optional": "(optional)",
+      "modeToggleLabel": "How to join",
+      "modeAuthenticated": "Sign in",
+      "modeAnonymous": "Join without an account",
       "joinAnother": "Join another room",
       "wsStatus": {
         "connecting": "Connecting to the live room…",
@@ -244,8 +250,10 @@
       "errors": {
         "unauthorized": "You must be signed in to join a room.",
         "invalidCode": "The entered code is invalid.",
+        "invalidPseudonym": "The display name must be at most 40 characters.",
         "notFound": "Code not found or expired.",
         "invalidRequest": "The request is invalid. Check the entered code.",
+        "sessionExpired": "Your guest session has expired. Please join again.",
         "generic": "Something went wrong. Please try again."
       }
     }
