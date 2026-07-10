@@ -1,6 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
-import { Subject, Subscription } from 'rxjs';
+import { Observable, Subject, Subscription } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 /**
@@ -12,6 +12,35 @@ const ACCESS_TOKEN_HEADER = 'access-token';
 
 /** UI connection status for the STOMP link opened after joining a room (US09.1.2 AC). */
 export type RoomConnectionStatus = 'connecting' | 'connected' | 'error';
+
+/**
+ * The minimal slice of `@stomp/rx-stomp`'s `RxStomp` surface this service depends on. Exists so
+ * tests can substitute a fully fake client via Angular DI ({@link STOMP_CLIENT_FACTORY}) instead
+ * of mocking the `@stomp/rx-stomp` ES module directly — module-level mocking of this package
+ * proved unreliable under this repo's CI runner (a `vi.mock('@stomp/rx-stomp', ...)` factory did
+ * not consistently intercept the import actually used by this service, so `new RxStomp()`
+ * silently constructed the *real* client in CI while working locally). DI substitution has no
+ * such failure mode: Angular's `TestBed` provider override is not affected by module transform/
+ * bundling differences between environments.
+ */
+export interface StompClient {
+  readonly connectionState$: Observable<RxStompState>;
+  readonly stompErrors$: Observable<unknown>;
+  configure(config: { brokerURL: string }): void;
+  activate(): void;
+  deactivate(): Promise<unknown>;
+  watch(destination: string, headers?: Record<string, string>): Observable<{ body: string }>;
+}
+
+/**
+ * Factory producing the {@link StompClient} used by {@link RoomWsService.connect}. Defaults to a
+ * real `RxStomp` instance; overridden in tests via
+ * `{ provide: STOMP_CLIENT_FACTORY, useValue: () => fake }`.
+ */
+export const STOMP_CLIENT_FACTORY = new InjectionToken<() => StompClient>('STOMP_CLIENT_FACTORY', {
+  providedIn: 'root',
+  factory: () => () => new RxStomp(),
+});
 
 /**
  * Minimal STOMP client wrapper for a single planning poker room (US09.1.2).
@@ -35,13 +64,15 @@ export type RoomConnectionStatus = 'connecting' | 'connected' | 'error';
  */
 @Injectable({ providedIn: 'root' })
 export class RoomWsService {
+  private readonly createClient = inject(STOMP_CLIENT_FACTORY);
+
   /** Current connection status — drives the connecting/connected/error UI (US09.1.2 AC). */
   readonly status = signal<RoomConnectionStatus>('connecting');
 
   /** Raw STOMP message bodies received on the subscribed room topic. */
   readonly messages$ = new Subject<string>();
 
-  private rxStomp: RxStomp | null = null;
+  private client: StompClient | null = null;
   private topicSubscription: Subscription | null = null;
   private stateSubscription: Subscription | null = null;
   private stompErrorSubscription: Subscription | null = null;
@@ -66,17 +97,17 @@ export class RoomWsService {
     this.everConnecting = false;
     this.status.set('connecting');
 
-    const rxStomp = new RxStomp();
-    rxStomp.configure({ brokerURL: this.buildWsUrl() });
-    this.rxStomp = rxStomp;
+    const client = this.createClient();
+    client.configure({ brokerURL: this.buildWsUrl() });
+    this.client = client;
 
-    this.stateSubscription = rxStomp.connectionState$.subscribe(state => this.onStateChange(state));
-    this.stompErrorSubscription = rxStomp.stompErrors$.subscribe(() => this.status.set('error'));
-    this.topicSubscription = rxStomp
+    this.stateSubscription = client.connectionState$.subscribe(state => this.onStateChange(state));
+    this.stompErrorSubscription = client.stompErrors$.subscribe(() => this.status.set('error'));
+    this.topicSubscription = client
       .watch(topic, { [ACCESS_TOKEN_HEADER]: accessToken })
       .subscribe(message => this.messages$.next(message.body));
 
-    rxStomp.activate();
+    client.activate();
   }
 
   /**
@@ -91,8 +122,8 @@ export class RoomWsService {
     this.stateSubscription = null;
     this.stompErrorSubscription = null;
 
-    void this.rxStomp?.deactivate();
-    this.rxStomp = null;
+    void this.client?.deactivate();
+    this.client = null;
   }
 
   private onStateChange(state: RxStompState): void {

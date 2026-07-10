@@ -2,32 +2,17 @@ import { TestBed } from '@angular/core/testing';
 import { RxStompState } from '@stomp/rx-stomp';
 import { Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { RoomWsService } from './room-ws.service';
+import { RoomWsService, STOMP_CLIENT_FACTORY, StompClient } from './room-ws.service';
 
-// `RxStompState` is a plain 4-value enum (CONNECTING/OPEN/CLOSING/CLOSED) — reconstructed here
-// instead of re-exported via `importOriginal` to avoid a module-hoisting TDZ issue between this
-// factory and the service's own top-level `@stomp/rx-stomp` import.
-//
-// `mockActiveFake` is set up once, here, as the `RxStomp` mock's *only* implementation — the
-// `mock`-prefixed name lets Vitest hoist its declaration above this `vi.mock()` call (factories
-// run before any other module-scope code, so an un-prefixed `const` would still be in its
-// temporal dead zone when this factory executes). Each test only ever mutates
-// `mockActiveFake.current` (a plain object property, never touched by `vi.restoreAllMocks()`)
-// rather than re-installing a fresh `mockImplementation()` per test — re-installing it turned
-// out to be flaky under this repo's CI runner (a `new RxStomp()` call would occasionally
-// resolve to a stale fake from an earlier test), so the implementation itself is now fixed for
-// the whole file and only the *data* it reads is swapped between tests.
-const mockActiveFake: { current: FakeRxStomp | null } = { current: null };
-
-vi.mock('@stomp/rx-stomp', () => ({
-  RxStomp: vi.fn(function (this: unknown) {
-    return mockActiveFake.current;
-  }),
-  RxStompState: { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 },
-}));
-
-/** Minimal fake standing in for `@stomp/rx-stomp`'s `RxStomp`, fully test-driven. */
-class FakeRxStomp {
+/**
+ * Minimal fake standing in for `@stomp/rx-stomp`'s `RxStomp`, substituted via
+ * `STOMP_CLIENT_FACTORY` (Angular DI) rather than an ES-module mock — see `room-ws.service.ts`'s
+ * `StompClient` TSDoc for why: mocking the `@stomp/rx-stomp` module itself proved unreliable
+ * under this repo's CI runner (the mock didn't consistently intercept the import actually used
+ * by the service, so tests silently exercised a real, unmocked `RxStomp`). DI substitution has
+ * no such failure mode.
+ */
+class FakeRxStomp implements StompClient {
   readonly connectionState$ = new Subject<RxStompState>();
   readonly stompErrors$ = new Subject<unknown>();
   readonly configureCalls: unknown[] = [];
@@ -74,12 +59,15 @@ const ACCESS_TOKEN = 'opaque-access-token';
 describe('RoomWsService', () => {
   let service: RoomWsService;
   let fake: FakeRxStomp;
+  let activeFake: { current: FakeRxStomp };
 
   beforeEach(() => {
     fake = new FakeRxStomp();
-    mockActiveFake.current = fake;
+    activeFake = { current: fake };
 
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      providers: [{ provide: STOMP_CLIENT_FACTORY, useValue: () => activeFake.current }],
+    });
     service = TestBed.inject(RoomWsService);
   });
 
@@ -89,7 +77,7 @@ describe('RoomWsService', () => {
 
   // ── connect() ──
 
-  it('configures RxStomp with the dev broker URL derived from environment.wsUrl and activates it', () => {
+  it('configures the STOMP client with the dev broker URL derived from environment.wsUrl and activates it', () => {
     service.connect(TOPIC, ACCESS_TOKEN);
 
     const cfg = fake.configureCalls[0] as { brokerURL: string };
@@ -164,7 +152,7 @@ describe('RoomWsService', () => {
     fake.connectionState$.next(RxStompState.CLOSED);
     expect(service.status()).toBe('error');
 
-    mockActiveFake.current = new FakeRxStomp();
+    activeFake.current = new FakeRxStomp();
     service.connect(TOPIC, ACCESS_TOKEN);
     expect(service.status()).toBe('connecting');
   });
@@ -207,7 +195,7 @@ describe('RoomWsService', () => {
     service.connect(TOPIC, ACCESS_TOKEN);
     const firstFake = fake;
 
-    mockActiveFake.current = new FakeRxStomp();
+    activeFake.current = new FakeRxStomp();
     service.connect(TOPIC, ACCESS_TOKEN);
 
     expect(firstFake.deactivateCalls).toBeGreaterThanOrEqual(1);
