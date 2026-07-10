@@ -4,12 +4,15 @@ import { provideHttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { RetroApiService } from './retro-api.service';
 import {
+  CloseContributionResponse,
   CreateRetroFormatRequest,
   CreateRetroSessionRequest,
   RetroFormatDefinition,
   RetroFormatsResponse,
+  RetroParticipantAccessResponse,
   RetroSessionJoinResponse,
   RetroSessionResponse,
+  RevealResponse,
 } from './retro.models';
 
 describe('RetroApiService', () => {
@@ -264,6 +267,166 @@ describe('RetroApiService', () => {
       req.flush({ title: 'Unauthorized', status: 401 }, { status: 401, statusText: 'Unauthorized' });
 
       expect((error as { status: number }).status).toBe(401);
+    });
+  });
+
+  describe('getById', () => {
+    const sessionId = '11111111-1111-1111-1111-111111111111';
+    const response: RetroSessionResponse = {
+      id: sessionId,
+      title: 'Rétro Sprint 8',
+      format: 'START_STOP_CONTINUE',
+      teamId: 42,
+      facilitatorUserId: 7,
+      joinCode: 'A3F9K2',
+      currentPhase: 'CONTRIBUTION',
+      contributionTimerSeconds: 600,
+      voteTimerSeconds: null,
+      actionTimerSeconds: null,
+      voteCountPerParticipant: 3,
+      sprintRef: null,
+      expiresAt: '2026-07-11T00:00:00Z',
+      createdAt: '2026-07-10T00:00:00Z',
+    };
+
+    it('GETs /retro/sessions/{id} and returns the full session detail', () => {
+      let result: RetroSessionResponse | undefined;
+
+      service.getById(sessionId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}`);
+      expect(req.request.method).toBe('GET');
+      req.flush(response);
+
+      expect(result).toEqual(response);
+    });
+
+    it('propagates a 401 error (expected in this bootstrap phase — no bearer token attached)', () => {
+      let error: unknown;
+
+      service.getById(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}`);
+      req.flush({ title: 'Unauthorized', status: 401 }, { status: 401, statusText: 'Unauthorized' });
+
+      expect((error as { status: number }).status).toBe(401);
+    });
+  });
+
+  describe('joinRealtimeSession', () => {
+    const sessionId = '11111111-1111-1111-1111-111111111111';
+    const response: RetroParticipantAccessResponse = {
+      accessToken: 'opaque-token',
+      ttlSeconds: 3600,
+      facilitator: false,
+      topicDestination: `/topic/agilite/retro/${sessionId}`,
+      facilitatorTopicDestination: null,
+      submitDestination: `/app/agilite/retro/${sessionId}/cards`,
+    };
+
+    it('POSTs to /retro/sessions/{id}/participants with an empty body and returns the access grant', () => {
+      let result: RetroParticipantAccessResponse | undefined;
+
+      service.joinRealtimeSession(sessionId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/participants`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({});
+      req.flush(response, { status: 201, statusText: 'Created' });
+
+      expect(result).toEqual(response);
+    });
+
+    it('propagates a 410 error (session expired or already closed)', () => {
+      let error: unknown;
+
+      service.joinRealtimeSession(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/participants`);
+      req.flush({ title: 'Gone', status: 410 }, { status: 410, statusText: 'Gone' });
+
+      expect((error as { status: number }).status).toBe(410);
+    });
+
+    it('propagates a 404 error (unknown session)', () => {
+      let error: unknown;
+
+      service.joinRealtimeSession(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/participants`);
+      req.flush({ title: 'Not Found', status: 404 }, { status: 404, statusText: 'Not Found' });
+
+      expect((error as { status: number }).status).toBe(404);
+    });
+  });
+
+  describe('closeContribution', () => {
+    const sessionId = '11111111-1111-1111-1111-111111111111';
+
+    it('POSTs to /retro/sessions/{id}/contribution/close and returns the new phase', () => {
+      let result: CloseContributionResponse | undefined;
+
+      service.closeContribution(sessionId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/contribution/close`);
+      expect(req.request.method).toBe('POST');
+      req.flush({ currentPhase: 'REVUE' });
+
+      expect(result).toEqual({ currentPhase: 'REVUE' });
+    });
+
+    it('propagates a 403 error (caller is not the facilitator)', () => {
+      let error: unknown;
+
+      service.closeContribution(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/contribution/close`);
+      req.flush({ title: 'Forbidden', status: 403 }, { status: 403, statusText: 'Forbidden' });
+
+      expect((error as { status: number }).status).toBe(403);
+    });
+
+    it('propagates a 409 error (session not currently in CONTRIBUTION)', () => {
+      let error: unknown;
+
+      service.closeContribution(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/contribution/close`);
+      req.flush({ title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
+
+      expect((error as { status: number }).status).toBe(409);
+    });
+  });
+
+  describe('reveal', () => {
+    const sessionId = '11111111-1111-1111-1111-111111111111';
+    const response: RevealResponse = {
+      sessionId,
+      cardCount: 2,
+      columns: { 'went-well': [{ id: 'card-1', content: 'Great teamwork' }] },
+    };
+
+    it('POSTs to /retro/sessions/{id}/reveal and returns the revealed cards grouped by column', () => {
+      let result: RevealResponse | undefined;
+
+      service.reveal(sessionId).subscribe(r => (result = r));
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/reveal`);
+      expect(req.request.method).toBe('POST');
+      req.flush(response);
+
+      expect(result).toEqual(response);
+    });
+
+    it('propagates a 409 error (session has not yet reached REVUE)', () => {
+      let error: unknown;
+
+      service.reveal(sessionId).subscribe({ error: e => (error = e) });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/retro/sessions/${sessionId}/reveal`);
+      req.flush({ title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
+
+      expect((error as { status: number }).status).toBe(409);
     });
   });
 });

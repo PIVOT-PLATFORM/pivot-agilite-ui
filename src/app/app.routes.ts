@@ -36,6 +36,14 @@ export const routes: Routes = [
       ),
   },
   {
+    // US20.1.2a — animation temps réel (contribution masquée + révélation) d'une session.
+    path: 'retro/sessions/:sessionId',
+    loadComponent: () =>
+      import('./features/retro/session-room/session-room.component').then(
+        m => m.SessionRoomComponent,
+      ),
+  },
+  {
     path: 'scrum-poker/rooms/new',
     loadComponent: () =>
       import('./features/scrum-poker/create-room/create-room.component').then(

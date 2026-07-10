@@ -137,6 +137,54 @@
         "columnAdded": "Colonne {{position}} ajoutée.",
         "columnRemoved": "Colonne {{position}} supprimée."
       }
+    },
+    "sessionRoom": {
+      "title": "Salon de rétrospective",
+      "joining": "Connexion au salon en cours…",
+      "wsStatus": {
+        "connecting": "Connexion au salon temps réel…",
+        "connected": "Connecté au salon temps réel.",
+        "error": "Connexion au salon temps réel impossible."
+      },
+      "phase": {
+        "CONTRIBUTION": "Phase : Contribution",
+        "REVUE": "Phase : Revue",
+        "VOTE": "Phase : Vote",
+        "ACTION": "Phase : Action",
+        "CLOSED": "Session clôturée"
+      },
+      "timeRemaining": "Temps restant : {{seconds}} s",
+      "fallbackNote": "Les colonnes affichées sont provisoires (catalogue de formats indisponible).",
+      "closeContributionNow": "Clôturer la contribution maintenant",
+      "triggerReveal": "Révéler les cards",
+      "submitAnonymously": "Soumettre anonymement",
+      "noCards": "Aucune card pour le moment.",
+      "facilitatorPreview": "Aperçu animateur (contenu en clair avant révélation)",
+      "submitFormLabel": "Proposer une card dans la colonne {{column}}",
+      "cardInputLabel": "Contenu de la card",
+      "submit": "Proposer",
+      "maskedCount": "{{count}} card(s) proposée(s)",
+      "error": {
+        "notFound": "Session introuvable.",
+        "expired": "Cette session a expiré ou est clôturée.",
+        "generic": "Une erreur est survenue. Veuillez réessayer.",
+        "actionFailed": "L'action a échoué. Veuillez réessayer."
+      },
+      "fallbackColumns": {
+        "start": "Commencer",
+        "stop": "Arrêter",
+        "continue": "Continuer",
+        "kif": "Kif",
+        "kaf": "Kaf",
+        "liked": "Apprécié",
+        "learned": "Appris",
+        "lacked": "Manqué",
+        "longedFor": "Souhaité",
+        "mad": "Fâché",
+        "sad": "Triste",
+        "glad": "Content",
+        "general": "Général"
+      }
     }
   },
   "scrumPoker": {

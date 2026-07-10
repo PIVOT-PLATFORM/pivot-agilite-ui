@@ -1,0 +1,116 @@
+<section class="session-room" aria-labelledby="session-room-heading">
+  <h1 id="session-room-heading">{{ 'retro.sessionRoom.title' | transloco }}</h1>
+
+  @if (joining()) {
+    <p class="session-room__status" role="status" aria-live="polite">
+      {{ 'retro.sessionRoom.joining' | transloco }}
+    </p>
+  } @else if (joinErrorKey(); as errorKey) {
+    <p class="session-room__error" role="alert">{{ errorKey | transloco }}</p>
+  } @else {
+    <div class="session-room__meta">
+      <p class="session-room__ws-status" role="status" aria-live="polite">
+        {{ 'retro.sessionRoom.wsStatus.' + retroWs.status() | transloco }}
+      </p>
+      <p class="session-room__phase" aria-live="polite">
+        {{ 'retro.sessionRoom.phase.' + phase() | transloco }}
+      </p>
+      @if (remainingSeconds(); as seconds) {
+        <p class="session-room__timer" role="timer" aria-live="off">
+          {{ 'retro.sessionRoom.timeRemaining' | transloco : { seconds } }}
+        </p>
+      }
+      @if (usingFallbackColumns()) {
+        <p class="session-room__fallback-note">{{ 'retro.sessionRoom.fallbackNote' | transloco }}</p>
+      }
+    </div>
+
+    @if (isFacilitator()) {
+      <div class="session-room__facilitator-controls">
+        @if (phase() === 'CONTRIBUTION') {
+          <button type="button" [disabled]="actionPending()" (click)="closeContributionNow()">
+            {{ 'retro.sessionRoom.closeContributionNow' | transloco }}
+          </button>
+        }
+        @if (phase() === 'REVUE' && !revealedColumns()) {
+          <button type="button" [disabled]="actionPending()" (click)="triggerReveal()">
+            {{ 'retro.sessionRoom.triggerReveal' | transloco }}
+          </button>
+        }
+        @if (actionErrorKey(); as actionError) {
+          <p class="session-room__error" role="alert">{{ actionError | transloco }}</p>
+        }
+      </div>
+    }
+
+    @if (phase() === 'CONTRIBUTION') {
+      <label class="session-room__anonymous-toggle">
+        <input
+          type="checkbox"
+          [checked]="anonymousDraft()"
+          (change)="toggleAnonymousDraft($any($event.target).checked)"
+        />
+        {{ 'retro.sessionRoom.submitAnonymously' | transloco }}
+      </label>
+    }
+
+    <div class="session-room__columns">
+      @for (column of columns(); track column.key) {
+        <section class="session-room__column" [attr.aria-labelledby]="'column-heading-' + column.key">
+          <h2 [id]="'column-heading-' + column.key" class="session-room__column-heading">
+            {{ column.label }}
+          </h2>
+
+          @if (revealedColumns(); as revealed) {
+            <ul class="session-room__card-list">
+              @for (card of revealedCardsFor(column.key); track card.id) {
+                <li class="session-room__card">{{ card.content }}</li>
+              }
+              @empty {
+                <li class="session-room__card session-room__card--empty">
+                  {{ 'retro.sessionRoom.noCards' | transloco }}
+                </li>
+              }
+            </ul>
+          } @else if (isFacilitator()) {
+            <ul class="session-room__card-list" aria-label="{{ 'retro.sessionRoom.facilitatorPreview' | transloco }}">
+              @for (card of facilitatorCardsFor(column.key); track card.id) {
+                <li class="session-room__card">{{ card.content }}</li>
+              }
+              @empty {
+                <li class="session-room__card session-room__card--empty">
+                  {{ 'retro.sessionRoom.noCards' | transloco }}
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="session-room__masked-count">
+              {{ 'retro.sessionRoom.maskedCount' | transloco : { count: maskedCountFor(column.key) } }}
+            </p>
+          }
+
+          @if (phase() === 'CONTRIBUTION') {
+            <form
+              class="session-room__submit-form"
+              (ngSubmit)="submitCard(column.key)"
+              [attr.aria-label]="'retro.sessionRoom.submitFormLabel' | transloco : { column: column.label }"
+            >
+              <label class="session-room__field-label" [for]="'card-input-' + column.key">
+                {{ 'retro.sessionRoom.cardInputLabel' | transloco }}
+              </label>
+              <textarea
+                [id]="'card-input-' + column.key"
+                class="session-room__card-input"
+                rows="2"
+                maxlength="2000"
+                [value]="draftValue(column.key)"
+                (input)="updateDraft(column.key, $any($event.target).value)"
+              ></textarea>
+              <button type="submit">{{ 'retro.sessionRoom.submit' | transloco }}</button>
+            </form>
+          }
+        </section>
+      }
+    </div>
+  }
+</section>
