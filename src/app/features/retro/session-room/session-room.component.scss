@@ -263,3 +263,17 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+
+// Warm-up panel (US20.3.2) — deliberately reuses existing building blocks from this same
+// stylesheet (`.session-room__column` for the box, `.session-room__card`/`.session-room__action-
+// item*` for each row, `.session-room__vote-controls`/`.session-room__vote-button` for the
+// per-row controls, `.session-room__create-action-button` for the continue CTA, `.session-room__
+// error` for the inline error) rather than introducing a parallel set of near-identical rules —
+// keeps this stylesheet's compiled size under the `anyComponentStyle` build budget (same reason
+// as the action-creation form's own precedent comment above). The only genuinely new rule needed
+// is spacing, since this panel sits standalone rather than inside the `.session-room__columns`
+// grid.
+.session-room__warmup {
+  margin-bottom: 1.5rem;
+}
