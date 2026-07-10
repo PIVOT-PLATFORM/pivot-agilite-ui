@@ -1,16 +1,28 @@
 import { TestBed } from '@angular/core/testing';
-import { RxStomp, RxStompState } from '@stomp/rx-stomp';
+import { RxStompState } from '@stomp/rx-stomp';
 import { Subject } from 'rxjs';
-import type { Mock } from 'vitest';
 import { environment } from '../../../environments/environment';
 import { RoomWsService } from './room-ws.service';
 
 // `RxStompState` is a plain 4-value enum (CONNECTING/OPEN/CLOSING/CLOSED) — reconstructed here
 // instead of re-exported via `importOriginal` to avoid a module-hoisting TDZ issue between this
-// factory and the service's own top-level `@stomp/rx-stomp` import (same approach already used
-// by pivot-collaboratif-ui's WhiteboardSyncService spec).
+// factory and the service's own top-level `@stomp/rx-stomp` import.
+//
+// `mockActiveFake` is set up once, here, as the `RxStomp` mock's *only* implementation — the
+// `mock`-prefixed name lets Vitest hoist its declaration above this `vi.mock()` call (factories
+// run before any other module-scope code, so an un-prefixed `const` would still be in its
+// temporal dead zone when this factory executes). Each test only ever mutates
+// `mockActiveFake.current` (a plain object property, never touched by `vi.restoreAllMocks()`)
+// rather than re-installing a fresh `mockImplementation()` per test — re-installing it turned
+// out to be flaky under this repo's CI runner (a `new RxStomp()` call would occasionally
+// resolve to a stale fake from an earlier test), so the implementation itself is now fixed for
+// the whole file and only the *data* it reads is swapped between tests.
+const mockActiveFake: { current: FakeRxStomp | null } = { current: null };
+
 vi.mock('@stomp/rx-stomp', () => ({
-  RxStomp: vi.fn(),
+  RxStomp: vi.fn(function (this: unknown) {
+    return mockActiveFake.current;
+  }),
   RxStompState: { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 },
 }));
 
@@ -65,19 +77,10 @@ describe('RoomWsService', () => {
 
   beforeEach(() => {
     fake = new FakeRxStomp();
-    // A regular function (not an arrow function) is required here: `new RxStomp()` in the
-    // service invokes this mock implementation via construction, and arrow functions cannot be
-    // used as constructors.
-    (RxStomp as unknown as Mock).mockImplementation(function (this: unknown) {
-      return fake;
-    });
+    mockActiveFake.current = fake;
 
     TestBed.configureTestingModule({});
     service = TestBed.inject(RoomWsService);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it('should be created', () => {
@@ -161,10 +164,7 @@ describe('RoomWsService', () => {
     fake.connectionState$.next(RxStompState.CLOSED);
     expect(service.status()).toBe('error');
 
-    const secondFake = new FakeRxStomp();
-    (RxStomp as unknown as Mock).mockImplementation(function (this: unknown) {
-      return secondFake;
-    });
+    mockActiveFake.current = new FakeRxStomp();
     service.connect(TOPIC, ACCESS_TOKEN);
     expect(service.status()).toBe('connecting');
   });
@@ -207,10 +207,7 @@ describe('RoomWsService', () => {
     service.connect(TOPIC, ACCESS_TOKEN);
     const firstFake = fake;
 
-    const secondFake = new FakeRxStomp();
-    (RxStomp as unknown as Mock).mockImplementation(function (this: unknown) {
-      return secondFake;
-    });
+    mockActiveFake.current = new FakeRxStomp();
     service.connect(TOPIC, ACCESS_TOKEN);
 
     expect(firstFake.deactivateCalls).toBeGreaterThanOrEqual(1);
