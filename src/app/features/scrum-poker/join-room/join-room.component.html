@@ -1,0 +1,68 @@
+<section class="join-room" aria-labelledby="join-room-heading">
+  <h1 id="join-room-heading">{{ 'scrumPoker.joinRoom.title' | transloco }}</h1>
+
+  @if (joinedRoom(); as room) {
+    <div class="join-room__success" role="status" aria-live="polite">
+      <p>{{ 'scrumPoker.joinRoom.success' | transloco }}</p>
+
+      <dl class="join-room__summary">
+        <dt>{{ 'scrumPoker.joinRoom.nameLabel' | transloco }}</dt>
+        <dd>{{ room.name }}</dd>
+      </dl>
+
+      <p class="join-room__ws-status" role="status" aria-live="polite">
+        {{ 'scrumPoker.joinRoom.wsStatus.' + roomWs.status() | transloco }}
+      </p>
+
+      <button type="button" class="join-room__another" (click)="joinAnother()">
+        {{ 'scrumPoker.joinRoom.joinAnother' | transloco }}
+      </button>
+    </div>
+  } @else {
+    <form class="join-room__form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="join-room__field">
+        <label class="join-room__label" for="join-room-code">
+          {{ 'scrumPoker.joinRoom.codeLabel' | transloco }}
+        </label>
+        <input
+          id="join-room-code"
+          class="join-room__input"
+          type="text"
+          formControlName="code"
+          autocomplete="off"
+          [attr.aria-invalid]="form.controls.code.invalid && form.controls.code.touched"
+          [attr.aria-describedby]="
+            form.controls.code.invalid && form.controls.code.touched ? 'join-room-code-error' : null
+          "
+        />
+        @if (form.controls.code.invalid && form.controls.code.touched) {
+          <p id="join-room-code-error" class="join-room__error" role="alert">
+            @if (form.controls.code.hasError('required')) {
+              {{ 'scrumPoker.joinRoom.codeRequired' | transloco }}
+            } @else if (form.controls.code.hasError('minlength') || form.controls.code.hasError('maxlength')) {
+              {{ 'scrumPoker.joinRoom.codeInvalidLength' | transloco }}
+            }
+          </p>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="join-room__submit"
+        [disabled]="submitting()"
+        [attr.aria-busy]="submitting()"
+      >
+        {{
+          (submitting()
+            ? 'scrumPoker.joinRoom.submitting'
+            : 'scrumPoker.joinRoom.submit'
+          ) | transloco
+        }}
+      </button>
+
+      @if (errorMessageKey(); as errorKey) {
+        <p class="join-room__error" role="alert">{{ errorKey | transloco }}</p>
+      }
+    </form>
+  }
+</section>

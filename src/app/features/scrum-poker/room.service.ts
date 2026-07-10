@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { CreateRoomRequest, RoomResponse } from './room.model';
+import { CreateRoomRequest, JoinRoomRequest, JoinRoomResponse, RoomResponse } from './room.model';
 
 /**
  * HTTP client for the planning poker room API (US09.1.1).
@@ -37,5 +37,17 @@ export class RoomService {
    */
   getRoom(roomId: number): Observable<RoomResponse> {
     return this.http.get<RoomResponse>(`${this.baseUrl}/${roomId}`);
+  }
+
+  /**
+   * Joins an existing planning poker room by its invite code (US09.1.2). On success, the
+   * response carries everything needed to open the room's STOMP link ({@link RoomWsService}):
+   * the `wsTopic` to subscribe to and the room-scoped `accessToken` to present on it.
+   *
+   * @param request the join request (invite code — caller uppercases it beforehand)
+   * @returns an observable of the joined room
+   */
+  joinRoom(request: JoinRoomRequest): Observable<JoinRoomResponse> {
+    return this.http.post<JoinRoomResponse>(`${this.baseUrl}/join`, request);
   }
 }
