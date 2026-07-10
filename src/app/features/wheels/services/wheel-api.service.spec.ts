@@ -82,4 +82,49 @@ describe('WheelApiService', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(null);
   });
+
+  it('spinWheel() calls POST /wheels/{wheelId}/spin with an empty body when no mode is given', () => {
+    service.spinWheel('w-1').subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrl}/wheels/w-1/spin`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({
+      wheelId: 'w-1',
+      entryId: 'e-1',
+      label: 'Ada Lovelace',
+      drawnAt: '2026-07-10T00:00:00Z',
+      antiRepeatMode: 'reduced_weight',
+    });
+  });
+
+  it('spinWheel() sends the requested antiRepeatMode', () => {
+    service.spinWheel('w-1', 'exclude').subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrl}/wheels/w-1/spin`);
+    expect(req.request.body).toEqual({ antiRepeatMode: 'exclude' });
+    req.flush({
+      wheelId: 'w-1',
+      entryId: 'e-1',
+      label: 'Ada Lovelace',
+      drawnAt: '2026-07-10T00:00:00Z',
+      antiRepeatMode: 'exclude',
+    });
+  });
+
+  it('listDraws() calls GET /wheels/{wheelId}/draws without a limit param by default', () => {
+    service.listDraws('w-1').subscribe();
+    const req = httpMock.expectOne(
+      (r) => r.url === `${environment.apiUrl}/wheels/w-1/draws` && !r.params.has('limit'),
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('listDraws() passes the limit query param when given', () => {
+    service.listDraws('w-1', 5).subscribe();
+    const req = httpMock.expectOne(
+      (r) => r.url === `${environment.apiUrl}/wheels/w-1/draws` && r.params.get('limit') === '5',
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
 });
