@@ -72,3 +72,37 @@ export interface ProblemDetail {
   readonly detail?: string;
   readonly code?: string;
 }
+
+/**
+ * Anti-repeat strategy applied to the wheel's last-drawn entry for a single `spin` (US14.2.1).
+ * A per-request parameter, not a field persisted on {@link WheelResponse} — see the Gate 1
+ * clarification in `us-tirage-pondere.md`.
+ */
+export type AntiRepeatMode = 'exclude' | 'reduced_weight';
+
+/**
+ * Request body for `POST /wheels/{wheelId}/spin`. Both the `antiRepeatMode` field and the whole
+ * body may be omitted — the backend then defaults to `'reduced_weight'`.
+ */
+export interface WheelSpinRequest {
+  antiRepeatMode?: AntiRepeatMode;
+}
+
+/**
+ * Response to a successful `POST /wheels/{wheelId}/spin` — the drawn entry, and the anti-repeat
+ * mode actually applied.
+ */
+export interface WheelSpinResponse {
+  readonly wheelId: string;
+  readonly entryId: string;
+  readonly label: string;
+  readonly drawnAt: string;
+  readonly antiRepeatMode: AntiRepeatMode;
+}
+
+/** A single row of `GET /wheels/{wheelId}/draws` — most recent draws first. */
+export interface WheelDrawResponse {
+  readonly entryId: string | null;
+  readonly label: string;
+  readonly drawnAt: string;
+}

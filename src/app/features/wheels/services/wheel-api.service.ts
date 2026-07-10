@@ -3,11 +3,14 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
+  AntiRepeatMode,
   CreateWheelRequest,
   TeamMemberResponse,
   TeamResponse,
   UpdateWheelRequest,
+  WheelDrawResponse,
   WheelResponse,
+  WheelSpinResponse,
 } from '../models/wheel.model';
 
 /**
@@ -91,5 +94,35 @@ export class WheelApiService {
    */
   deleteWheel(wheelId: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/wheels/${wheelId}`);
+  }
+
+  /**
+   * Performs a weighted, anti-repeat draw on a wheel (US14.2.1).
+   *
+   * @param wheelId        the wheel's identifier
+   * @param antiRepeatMode the anti-repeat mode for this draw; omitted defaults to
+   *                       `'reduced_weight'` server-side
+   * @returns the draw result
+   */
+  spinWheel(wheelId: string, antiRepeatMode?: AntiRepeatMode): Observable<WheelSpinResponse> {
+    return this.http.post<WheelSpinResponse>(
+      `${this.baseUrl}/wheels/${wheelId}/spin`,
+      antiRepeatMode ? { antiRepeatMode } : {},
+    );
+  }
+
+  /**
+   * Lists the most recent draws of a wheel, most recent first (US14.2.1).
+   *
+   * @param wheelId the wheel's identifier
+   * @param limit   the maximum number of draws to return (1-100, server default 20)
+   * @returns the most recent draws, most recent first
+   */
+  listDraws(wheelId: string, limit?: number): Observable<WheelDrawResponse[]> {
+    let params = new HttpParams();
+    if (limit !== undefined) {
+      params = params.set('limit', limit);
+    }
+    return this.http.get<WheelDrawResponse[]>(`${this.baseUrl}/wheels/${wheelId}/draws`, { params });
   }
 }
