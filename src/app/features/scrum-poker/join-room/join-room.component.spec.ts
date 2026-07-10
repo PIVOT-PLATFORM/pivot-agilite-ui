@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { Subject, of, throwError } from 'rxjs';
-import { JoinRoomResponse } from '../room.model';
+import { AnonymousJoinResponse, JoinRoomResponse } from '../room.model';
 import { RoomWsService } from '../room-ws.service';
 import { RoomService } from '../room.service';
 import { JoinRoomComponent } from './join-room.component';
@@ -20,13 +20,31 @@ describe('JoinRoomComponent', () => {
     accessToken: 'opaque-access-token',
   };
 
+  const mockAnonymousRoom: AnonymousJoinResponse = {
+    roomId: '9f4e6b1a-6c3d-4b8e-8f2a-1234567890ab',
+    name: 'Sprint 8 estimation',
+    sequence: 'FIBONACCI',
+    cardValues: ['0', '1', '2', '3', '5', '8', '13', '21', '34', '55', '89', '?'],
+    active: true,
+    expiresAt: '2026-07-11T10:00:00Z',
+    wsTopic: '/topic/agilite/poker/9f4e6b1a-6c3d-4b8e-8f2a-1234567890ab',
+    accessToken: 'opaque-guest-access-token',
+    sessionId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    pseudonym: 'Invité-A1B2',
+    guestSessionExpiresAt: '2026-07-10T12:00:00Z',
+  };
+
   let joinRoomSpy: ReturnType<typeof vi.fn>;
+  let joinAnonymousSpy: ReturnType<typeof vi.fn>;
+  let guestHeartbeatSpy: ReturnType<typeof vi.fn>;
   let wsConnectSpy: ReturnType<typeof vi.fn>;
   let wsDisconnectSpy: ReturnType<typeof vi.fn>;
   let wsStatusSignal: ReturnType<typeof signal<'connecting' | 'connected' | 'error'>>;
 
   beforeEach(async () => {
     joinRoomSpy = vi.fn().mockReturnValue(of(mockRoom));
+    joinAnonymousSpy = vi.fn().mockReturnValue(of(mockAnonymousRoom));
+    guestHeartbeatSpy = vi.fn().mockReturnValue(of({ expiresAt: '2026-07-10T12:05:00Z' }));
     wsConnectSpy = vi.fn();
     wsDisconnectSpy = vi.fn();
     wsStatusSignal = signal<'connecting' | 'connected' | 'error'>('connecting');
@@ -34,7 +52,10 @@ describe('JoinRoomComponent', () => {
     await TestBed.configureTestingModule({
       imports: [JoinRoomComponent, TranslocoTestingModule.forRoot({ langs: { fr: {}, en: {} } })],
       providers: [
-        { provide: RoomService, useValue: { joinRoom: joinRoomSpy } },
+        {
+          provide: RoomService,
+          useValue: { joinRoom: joinRoomSpy, joinAnonymous: joinAnonymousSpy, guestHeartbeat: guestHeartbeatSpy },
+        },
         {
           provide: RoomWsService,
           useValue: { status: wsStatusSignal, connect: wsConnectSpy, disconnect: wsDisconnectSpy },
@@ -362,5 +383,241 @@ describe('JoinRoomComponent', () => {
     fixture.destroy();
 
     expect(wsDisconnectSpy).toHaveBeenCalled();
+  });
+
+  // ── Anonymous join (US09.3.1) ──
+
+  type AnonymousHarness = {
+    mode: () => 'authenticated' | 'anonymous';
+    switchMode: (mode: 'authenticated' | 'anonymous') => void;
+    anonymousForm: {
+      controls: {
+        code: { setValue: (v: string) => void };
+        pseudonym: { setValue: (v: string) => void };
+      };
+    };
+    onSubmitAnonymous: () => void;
+    joinAnotherAnonymous: () => void;
+    joinedAnonymousRoom: () => AnonymousJoinResponse | null;
+    anonymousErrorMessageKey: () => string | null;
+  };
+
+  /**
+   * Given the default view, then the authenticated mode is shown and the mode-toggle buttons
+   * expose their pressed state via aria-pressed (A11y AC).
+   */
+  it('defaults to the authenticated mode and toggles via switchMode()', () => {
+    const fixture = TestBed.createComponent(JoinRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as AnonymousHarness;
+
+    expect(component.mode()).toBe('authenticated');
+    const buttons = fixture.nativeElement.querySelectorAll('.join-room__mode-button');
+    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+    expect(buttons[1].getAttribute('aria-pressed')).toBe('false');
+
+    component.switchMode('anonymous');
+    fixture.detectChanges();
+
+    expect(component.mode()).toBe('anonymous');
+    expect(fixture.nativeElement.querySelector('#join-room-anonymous-code')).not.toBeNull();
+  });
+
+  /**
+   * Given an empty code in anonymous mode, when submitted, then the service is never called
+   * and the form is marked touched.
+   */
+  it('does not submit an anonymous join with an empty code', () => {
+    const fixture = TestBed.createComponent(JoinRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as AnonymousHarness;
+    component.switchMode('anonymous');
+    fixture.detectChanges();
+
+    component.onSubmitAnonymous();
+    fixture.detectChanges();
+
+    expect(joinAnonymousSpy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Given a valid code and no pseudonym, when submitted anonymously, then
+   * RoomService.joinAnonymous() is called with only the uppercased code (no pseudonym key),
+   * and on success the STOMP client connects with the response's wsTopic/accessToken.
+   */
+  it('joins anonymously with no pseudonym and connects the STOMP client', () => {
+    const fixture = TestBed.createComponent(JoinRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as AnonymousHarness;
+    component.switchMode('anonymous');
+    fixture.detectChanges();
+
+    component.anonymousForm.controls.code.setValue('k7m2xq');
+    component.onSubmitAnonymous();
+    fixture.detectChanges();
+
+    expect(joinAnonymousSpy).toHaveBeenCalledWith({ code: 'K7M2XQ' });
+    expect(component.joinedAnonymousRoom()).toEqual(mockAnonymousRoom);
+    expect(wsConnectSpy).toHaveBeenCalledWith(mockAnonymousRoom.wsTopic, mockAnonymousRoom.accessToken);
+  });
+
+  /**
+   * Given a valid code and a pseudonym, when submitted anonymously, then the trimmed pseudonym
+   * is included in the request.
+   */
+  it('joins anonymously with a trimmed pseudonym', () => {
+    const fixture = TestBed.createComponent(JoinRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as AnonymousHarness;
+    component.switchMode('anonymous');
+    fixture.detectChanges();
+
+    component.anonymousForm.controls.code.setValue('K7M2XQ');
+    component.anonymousForm.controls.pseudonym.setValue('  Alex  ');
+    component.onSubmitAnonymous();
+
+    expect(joinAnonymousSpy).toHaveBeenCalledWith({ code: 'K7M2XQ', pseudonym: 'Alex' });
+  });
+
+  /**
+   * Given a joined anonymous room, when joinAnotherAnonymous() is called, then the STOMP
+   * connection is torn down and the view resets (joinedAnonymousRoom back to null).
+   */
+  it('joinAnotherAnonymous() disconnects the STOMP client and resets the view', () => {
+    const fixture = TestBed.createComponent(JoinRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as AnonymousHarness;
+    component.switchMode('anonymous');
+    fixture.detectChanges();
+    component.anonymousForm.controls.code.setValue('K7M2XQ');
+    component.onSubmitAnonymous();
+    expect(component.joinedAnonymousRoom()).not.toBeNull();
+
+    component.joinAnotherAnonymous();
+
+    expect(wsDisconnectSpy).toHaveBeenCalled();
+    expect(component.joinedAnonymousRoom()).toBeNull();
+  });
+
+  /**
+   * Given a successful anonymous join, when the heartbeat interval elapses, then
+   * RoomService.guestHeartbeat() is called with the room id and access token — proving the
+   * guest session is kept alive automatically (US09.3.1 AC), not just a one-shot join.
+   */
+  it('sends a periodic heartbeat after joining anonymously', () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(JoinRoomComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance as unknown as AnonymousHarness;
+      component.switchMode('anonymous');
+      fixture.detectChanges();
+      component.anonymousForm.controls.code.setValue('K7M2XQ');
+      component.onSubmitAnonymous();
+
+      expect(guestHeartbeatSpy).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(5 * 60 * 1000);
+
+      expect(guestHeartbeatSpy).toHaveBeenCalledWith(mockAnonymousRoom.roomId, {
+        accessToken: mockAnonymousRoom.accessToken,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  /**
+   * Security/error case (US09.3.1): given an anonymous session whose heartbeat fails (e.g. HTTP
+   * 410 — the guest session expired mid-use), then the STOMP connection is torn down, the view
+   * falls back to the join form, and a clear "session expired" error is surfaced — never a
+   * silent failure.
+   */
+  it('falls back to the join form with an explicit error when the heartbeat fails', () => {
+    vi.useFakeTimers();
+    try {
+      guestHeartbeatSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 410 })));
+      const fixture = TestBed.createComponent(JoinRoomComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance as unknown as AnonymousHarness;
+      component.switchMode('anonymous');
+      fixture.detectChanges();
+      component.anonymousForm.controls.code.setValue('K7M2XQ');
+      component.onSubmitAnonymous();
+
+      vi.advanceTimersByTime(5 * 60 * 1000);
+      fixture.detectChanges();
+
+      expect(wsDisconnectSpy).toHaveBeenCalled();
+      expect(component.joinedAnonymousRoom()).toBeNull();
+      expect(component.anonymousErrorMessageKey()).toBe('scrumPoker.joinRoom.errors.sessionExpired');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  /**
+   * Error case: given the backend rejects the anonymous join with 404, when submitted, then
+   * the not-found error key is set.
+   */
+  it('maps a 404 response on anonymous join to the not-found error key', () => {
+    joinAnonymousSpy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+    const fixture = TestBed.createComponent(JoinRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as AnonymousHarness;
+    component.switchMode('anonymous');
+    fixture.detectChanges();
+    component.anonymousForm.controls.code.setValue('K7M2XQ');
+
+    component.onSubmitAnonymous();
+    fixture.detectChanges();
+
+    expect(component.anonymousErrorMessageKey()).toBe('scrumPoker.joinRoom.errors.notFound');
+    expect(wsConnectSpy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Error case: given the backend rejects the anonymous join with 400 INVALID_PSEUDONYM, when
+   * submitted, then the invalid-pseudonym error key is set.
+   */
+  it('maps a 400 INVALID_PSEUDONYM response to the invalid pseudonym error key', () => {
+    joinAnonymousSpy.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 400, error: { code: 'INVALID_PSEUDONYM' } })),
+    );
+    const fixture = TestBed.createComponent(JoinRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as AnonymousHarness;
+    component.switchMode('anonymous');
+    fixture.detectChanges();
+    component.anonymousForm.controls.code.setValue('K7M2XQ');
+
+    component.onSubmitAnonymous();
+    fixture.detectChanges();
+
+    expect(component.anonymousErrorMessageKey()).toBe('scrumPoker.joinRoom.errors.invalidPseudonym');
+  });
+
+  /**
+   * Given the component is destroyed while an anonymous session is open, then both the STOMP
+   * connection and the heartbeat interval are torn down — no leaked socket, no leaked timer.
+   */
+  it('stops the heartbeat interval on destroy', () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(JoinRoomComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance as unknown as AnonymousHarness;
+      component.switchMode('anonymous');
+      fixture.detectChanges();
+      component.anonymousForm.controls.code.setValue('K7M2XQ');
+      component.onSubmitAnonymous();
+
+      fixture.destroy();
+      vi.advanceTimersByTime(5 * 60 * 1000);
+
+      expect(guestHeartbeatSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -67,3 +67,50 @@ export interface JoinRoomResponse {
   /** Opaque, room-scoped token presented on the STOMP `access-token` native header. */
   readonly accessToken: string;
 }
+
+/**
+ * Request body for `POST /api/agilite/poker/rooms/join-anonymous` (US09.3.1) — joining with no
+ * account and no `Authorization` header at all. `pseudonym` is optional: the backend generates
+ * a default (e.g. `Invité-XXXX`) when omitted or blank.
+ */
+export interface AnonymousJoinRequest {
+  readonly code: string;
+  readonly pseudonym?: string;
+}
+
+/**
+ * API response shape for `POST /api/agilite/poker/rooms/join-anonymous` (US09.3.1). Mirrors
+ * {@link JoinRoomResponse} with the two fields specific to anonymous participation: `sessionId`
+ * (a temporary, server-generated correlation id — never persisted anywhere) and `pseudonym` (the
+ * resolved display name). `guestSessionExpiresAt` is the 2h-inactivity-capped expiry of the
+ * underlying access grant — distinct from `expiresAt` (the room's own lifetime).
+ */
+export interface AnonymousJoinResponse {
+  readonly roomId: string;
+  readonly name: string;
+  readonly sequence: string;
+  readonly cardValues: readonly string[];
+  readonly active: boolean;
+  readonly expiresAt: string;
+  readonly wsTopic: string;
+  readonly accessToken: string;
+  readonly sessionId: string;
+  readonly pseudonym: string;
+  readonly guestSessionExpiresAt: string;
+}
+
+/**
+ * Request body for `POST /api/agilite/poker/rooms/{roomId}/guest-sessions/heartbeat` (US09.3.1)
+ * — keeps an anonymous guest's 2h-inactivity session alive past its current TTL.
+ */
+export interface GuestHeartbeatRequest {
+  readonly accessToken: string;
+}
+
+/**
+ * Response body for `POST /api/agilite/poker/rooms/{roomId}/guest-sessions/heartbeat`
+ * (US09.3.1).
+ */
+export interface GuestHeartbeatResponse {
+  readonly expiresAt: string;
+}

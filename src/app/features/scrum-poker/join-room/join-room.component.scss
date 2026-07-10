@@ -96,3 +96,43 @@
   font-size: 0.875rem;
   margin: 0.5rem 0 1rem;
 }
+
+.join-room__mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.join-room__mode-button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  border: 1px solid #58606b;
+  background: transparent;
+  color: #1a1c1e;
+  font-size: 0.9375rem;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid #0b5fff;
+    outline-offset: 1px;
+  }
+}
+
+.join-room__mode-button--active {
+  background: #0b5fff;
+  border-color: #0b5fff;
+  color: #fff;
+}
+
+// Pseudonyms are free-form display names — never uppercased/letter-spaced like an invite code.
+.join-room__input--pseudonym {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.join-room__optional {
+  font-weight: 400;
+  color: #58606b;
+  margin-left: 0.25rem;
+}

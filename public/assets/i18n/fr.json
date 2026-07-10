@@ -232,9 +232,15 @@
       "codeRequired": "Le code est requis.",
       "codeInvalidLength": "Le code doit contenir exactement 6 caractères.",
       "submit": "Rejoindre la room",
+      "submitAnonymous": "Rejoindre anonymement",
       "submitting": "Connexion en cours…",
       "success": "Room rejointe avec succès.",
       "nameLabel": "Nom de la room",
+      "pseudonymLabel": "Pseudonyme",
+      "optional": "(facultatif)",
+      "modeToggleLabel": "Mode de connexion",
+      "modeAuthenticated": "Se connecter",
+      "modeAnonymous": "Rejoindre sans compte",
       "joinAnother": "Rejoindre une autre room",
       "wsStatus": {
         "connecting": "Connexion au salon temps réel…",
@@ -244,8 +250,10 @@
       "errors": {
         "unauthorized": "Vous devez être connecté pour rejoindre une room.",
         "invalidCode": "Le code saisi est invalide.",
+        "invalidPseudonym": "Le pseudonyme ne doit pas dépasser 40 caractères.",
         "notFound": "Code introuvable ou expiré.",
         "invalidRequest": "La demande est invalide. Vérifiez le code saisi.",
+        "sessionExpired": "Votre session invité a expiré. Merci de rejoindre à nouveau.",
         "generic": "Une erreur est survenue. Veuillez réessayer."
       }
     }
