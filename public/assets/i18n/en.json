@@ -256,6 +256,24 @@
         "sessionExpired": "Your guest session has expired. Please join again.",
         "generic": "Something went wrong. Please try again."
       }
+    },
+    "roomBoard": {
+      "heading": "Current ticket",
+      "ticketTitleLabel": "Ticket title",
+      "ticketTitleRequired": "The ticket title is required.",
+      "ticketTitleTooLong": "The title must not exceed 200 characters.",
+      "createTicket": "Create ticket",
+      "creatingTicket": "Creating…",
+      "cardsLabel": "Voting cards",
+      "votedCounter": "{{voted}}/{{total}} have voted",
+      "waitingForTicket": "Waiting for the facilitator to create a ticket…",
+      "errors": {
+        "facilitatorOnly": "Only the room's facilitator can create a ticket.",
+        "activeTicketExists": "A ticket is already being voted on in this room.",
+        "invalidTitle": "The ticket title is invalid.",
+        "invalidRequest": "The request is invalid. Check the ticket title.",
+        "generic": "Something went wrong. Please try again."
+      }
     }
   }
 }

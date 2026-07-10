@@ -1,9 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
+import { RoomWsService } from '../room-ws.service';
 import { RoomResponse } from '../room.model';
 import { RoomService } from '../room.service';
+import { TicketService } from '../ticket.service';
 import { CreateRoomComponent } from './create-room.component';
 
 describe('CreateRoomComponent', () => {
@@ -18,14 +21,21 @@ describe('CreateRoomComponent', () => {
     createdAt: '2026-07-10T10:00:00Z',
     expiresAt: '2026-07-11T10:00:00Z',
     wsTopic: '/topic/agilite/poker/42',
+    accessToken: 'opaque-facilitator-access-token',
   };
 
   let createRoomSpy: ReturnType<typeof vi.fn>;
   let getRoomSpy: ReturnType<typeof vi.fn>;
+  let wsConnectSpy: ReturnType<typeof vi.fn>;
+  let wsDisconnectSpy: ReturnType<typeof vi.fn>;
+  let wsStatusSignal: ReturnType<typeof signal<'connecting' | 'connected' | 'error'>>;
 
   beforeEach(async () => {
     createRoomSpy = vi.fn().mockReturnValue(of(mockRoom));
     getRoomSpy = vi.fn();
+    wsConnectSpy = vi.fn();
+    wsDisconnectSpy = vi.fn();
+    wsStatusSignal = signal<'connecting' | 'connected' | 'error'>('connecting');
 
     await TestBed.configureTestingModule({
       imports: [CreateRoomComponent, TranslocoTestingModule.forRoot({ langs: { fr: {}, en: {} } })],
@@ -34,6 +44,17 @@ describe('CreateRoomComponent', () => {
           provide: RoomService,
           useValue: { createRoom: createRoomSpy, getRoom: getRoomSpy },
         },
+        {
+          provide: RoomWsService,
+          useValue: {
+            status: wsStatusSignal,
+            connect: wsConnectSpy,
+            disconnect: wsDisconnectSpy,
+            messages$: new Subject<string>(),
+            submitVote: vi.fn(),
+          },
+        },
+        { provide: TicketService, useValue: { createTicket: vi.fn(), getCurrentTicket: vi.fn().mockReturnValue(of(null)) } },
       ],
     }).compileComponents();
   });
@@ -304,5 +325,83 @@ describe('CreateRoomComponent', () => {
     fixture.detectChanges();
 
     expect(component.createdRoom()).toBeNull();
+  });
+
+  // ── STOMP connection (US09.2.1) ──
+
+  /**
+   * Given a successful room creation, when the response carries its own accessToken, then the
+   * facilitator's STOMP connection opens immediately using the response's wsTopic/accessToken/id
+   * — closing the US09.1.1 gap where the facilitator never got a realtime connection at all.
+   */
+  it('connects the STOMP client with wsTopic/accessToken/roomId after creating a room', () => {
+    const fixture = TestBed.createComponent(CreateRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as {
+      form: { controls: { name: { setValue: (v: string) => void } } };
+      onSubmit: () => void;
+    };
+
+    component.form.controls.name.setValue('Sprint 8 estimation');
+    component.onSubmit();
+    fixture.detectChanges();
+
+    expect(wsConnectSpy).toHaveBeenCalledWith(mockRoom.wsTopic, mockRoom.accessToken, '42');
+  });
+
+  /**
+   * Given the response carries no accessToken (defensive — should never happen per the backend
+   * contract, but this component must not throw either way), then the STOMP client is never
+   * connected.
+   */
+  it('does not attempt to connect when the response carries no accessToken', () => {
+    createRoomSpy.mockReturnValue(of({ ...mockRoom, accessToken: undefined }));
+    const fixture = TestBed.createComponent(CreateRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as {
+      form: { controls: { name: { setValue: (v: string) => void } } };
+      onSubmit: () => void;
+    };
+
+    component.form.controls.name.setValue('Room');
+    component.onSubmit();
+    fixture.detectChanges();
+
+    expect(wsConnectSpy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Given a created room shown in the success view, when createAnother() is called, then the
+   * STOMP connection is torn down alongside the view reset.
+   */
+  it('createAnother() disconnects the STOMP client', () => {
+    const fixture = TestBed.createComponent(CreateRoomComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as {
+      form: { controls: { name: { setValue: (v: string) => void } } };
+      onSubmit: () => void;
+      createAnother: () => void;
+    };
+
+    component.form.controls.name.setValue('Room');
+    component.onSubmit();
+    fixture.detectChanges();
+
+    component.createAnother();
+
+    expect(wsDisconnectSpy).toHaveBeenCalled();
+  });
+
+  /**
+   * Given the component is destroyed (e.g. navigation away), then the STOMP connection is torn
+   * down rather than leaking an open socket.
+   */
+  it('disconnects the STOMP client on destroy', () => {
+    const fixture = TestBed.createComponent(CreateRoomComponent);
+    fixture.detectChanges();
+
+    fixture.destroy();
+
+    expect(wsDisconnectSpy).toHaveBeenCalled();
   });
 });

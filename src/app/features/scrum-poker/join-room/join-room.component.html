@@ -14,6 +14,8 @@
         {{ 'scrumPoker.joinRoom.wsStatus.' + roomWs.status() | transloco }}
       </p>
 
+      <app-room-board [roomId]="room.roomId" [cardValues]="room.cardValues" [isFacilitator]="false" />
+
       <button type="button" class="join-room__another" (click)="joinAnother()">
         {{ 'scrumPoker.joinRoom.joinAnother' | transloco }}
       </button>
@@ -36,6 +38,12 @@
       @if (anonymousErrorMessageKey(); as anonymousErrorKey) {
         <p class="join-room__error" role="alert">{{ anonymousErrorKey | transloco }}</p>
       }
+
+      <app-room-board
+        [roomId]="anonymousRoom.roomId"
+        [cardValues]="anonymousRoom.cardValues"
+        [isFacilitator]="false"
+      />
 
       <button type="button" class="join-room__another" (click)="joinAnotherAnonymous()">
         {{ 'scrumPoker.joinRoom.joinAnother' | transloco }}

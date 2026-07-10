@@ -2,6 +2,7 @@ import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { Observable, Subject, Subscription } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { SubmitVoteRequest } from './ticket.model';
 
 /**
  * Native STOMP header carrying the room-scoped access token returned by
@@ -30,6 +31,7 @@ export interface StompClient {
   activate(): void;
   deactivate(): Promise<unknown>;
   watch(destination: string, headers?: Record<string, string>): Observable<{ body: string }>;
+  publish(params: { destination: string; body: string; headers?: Record<string, string> }): void;
 }
 
 /**
@@ -53,14 +55,16 @@ export const STOMP_CLIENT_FACTORY = new InjectionToken<() => StompClient>('STOMP
  * so it only needs to accompany the subscription to that room's topic.
  *
  * Deliberately narrow in scope — one room per service instance, no generic multi-domain WS
- * abstraction, no message parsing/typing beyond raw bodies. No other feature in this repo
- * consumes STOMP yet; a future US adding ticket/vote messages can build on {@link messages$}
- * without changing this connection contract. Connection state is exposed as a `signal` (this
- * repo's established local-state primitive, see `CLAUDE.md`) rather than an `Observable`,
- * mirroring the equivalent continuous-state fields already used by other module's own
- * STOMP wrapper (e.g. `WhiteboardSyncService.status` in pivot-collaboratif-ui); discrete
- * incoming frames are exposed as an `Observable` ({@link messages$}), same as that
- * precedent's `remoteActions$`.
+ * abstraction, no message parsing/typing beyond raw bodies. Connection state is exposed as a
+ * `signal` (this repo's established local-state primitive, see `CLAUDE.md`) rather than an
+ * `Observable`, mirroring the equivalent continuous-state fields already used by other module's
+ * own STOMP wrapper (e.g. `WhiteboardSyncService.status` in pivot-collaboratif-ui); discrete
+ * incoming frames are exposed as an `Observable` ({@link messages$}), same as that precedent's
+ * `remoteActions$`.
+ *
+ * <p>Since US09.2.1, also supports **publishing** (vote submission) via {@link submitVote} —
+ * mirrors `pivot-agilite-core`'s retro STOMP wrapper (`RetroSessionWsService.submitCard`), which
+ * added the same capability on top of an initially watch-only service.
  */
 @Injectable({ providedIn: 'root' })
 export class RoomWsService {
@@ -76,6 +80,8 @@ export class RoomWsService {
   private topicSubscription: Subscription | null = null;
   private stateSubscription: Subscription | null = null;
   private stompErrorSubscription: Subscription | null = null;
+  private roomId: string | null = null;
+  private accessToken: string | null = null;
   /**
    * True once a `CONNECTING` state has actually been observed. `RxStomp#connectionState$` is
    * a `BehaviorSubject` seeded with `CLOSED` *before* the first connection attempt — without
@@ -89,13 +95,17 @@ export class RoomWsService {
    * room-scoped access token on the native `access-token` header. Safe to call once per join;
    * call {@link disconnect} first to switch rooms on the same service instance.
    *
-   * @param topic the room's STOMP destination (`wsTopic` from the join response)
-   * @param accessToken the opaque, room-scoped access token from the join response
+   * @param topic the room's STOMP destination (`wsTopic` from the join/creation response)
+   * @param accessToken the opaque, room-scoped access token from the join/creation response
+   * @param roomId the room's id — stored so {@link submitVote} can address the room's vote
+   *   application destination (US09.2.1) without the caller having to pass it again on every vote
    */
-  connect(topic: string, accessToken: string): void {
+  connect(topic: string, accessToken: string, roomId: string): void {
     this.disconnect();
     this.everConnecting = false;
     this.status.set('connecting');
+    this.roomId = roomId;
+    this.accessToken = accessToken;
 
     const client = this.createClient();
     client.configure({ brokerURL: this.buildWsUrl() });
@@ -111,6 +121,24 @@ export class RoomWsService {
   }
 
   /**
+   * Submits (or changes) a vote on a ticket (US09.2.1), over STOMP SEND to
+   * `/app/agilite/poker/{roomId}/vote`. No-ops (does nothing) if {@link connect} was never
+   * called or the connection has since been torn down.
+   *
+   * @param request the ticket id and chosen card value
+   */
+  submitVote(request: SubmitVoteRequest): void {
+    if (!this.client || !this.roomId || !this.accessToken) {
+      return;
+    }
+    this.client.publish({
+      destination: `/app/agilite/poker/${this.roomId}/vote`,
+      body: JSON.stringify(request),
+      headers: { [ACCESS_TOKEN_HEADER]: this.accessToken },
+    });
+  }
+
+  /**
    * Tears down the STOMP connection and its subscriptions. Safe to call repeatedly, including
    * before any {@link connect} call.
    */
@@ -121,6 +149,8 @@ export class RoomWsService {
     this.topicSubscription = null;
     this.stateSubscription = null;
     this.stompErrorSubscription = null;
+    this.roomId = null;
+    this.accessToken = null;
 
     void this.client?.deactivate();
     this.client = null;

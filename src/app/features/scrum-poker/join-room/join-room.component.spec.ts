@@ -3,9 +3,10 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { Subject, of, throwError } from 'rxjs';
-import { AnonymousJoinResponse, JoinRoomResponse } from '../room.model';
 import { RoomWsService } from '../room-ws.service';
+import { AnonymousJoinResponse, JoinRoomResponse } from '../room.model';
 import { RoomService } from '../room.service';
+import { TicketService } from '../ticket.service';
 import { JoinRoomComponent } from './join-room.component';
 
 describe('JoinRoomComponent', () => {
@@ -58,8 +59,15 @@ describe('JoinRoomComponent', () => {
         },
         {
           provide: RoomWsService,
-          useValue: { status: wsStatusSignal, connect: wsConnectSpy, disconnect: wsDisconnectSpy },
+          useValue: {
+            status: wsStatusSignal,
+            connect: wsConnectSpy,
+            disconnect: wsDisconnectSpy,
+            messages$: new Subject<string>(),
+            submitVote: vi.fn(),
+          },
         },
+        { provide: TicketService, useValue: { createTicket: vi.fn(), getCurrentTicket: vi.fn().mockReturnValue(of(null)) } },
       ],
     }).compileComponents();
   });
@@ -155,7 +163,7 @@ describe('JoinRoomComponent', () => {
 
     expect(joinRoomSpy).toHaveBeenCalledWith({ code: 'K7M2XQ' });
     expect(component.joinedRoom()).toEqual(mockRoom);
-    expect(wsConnectSpy).toHaveBeenCalledWith(mockRoom.wsTopic, mockRoom.accessToken);
+    expect(wsConnectSpy).toHaveBeenCalledWith(mockRoom.wsTopic, mockRoom.accessToken, mockRoom.roomId);
   });
 
   /**
@@ -458,7 +466,11 @@ describe('JoinRoomComponent', () => {
 
     expect(joinAnonymousSpy).toHaveBeenCalledWith({ code: 'K7M2XQ' });
     expect(component.joinedAnonymousRoom()).toEqual(mockAnonymousRoom);
-    expect(wsConnectSpy).toHaveBeenCalledWith(mockAnonymousRoom.wsTopic, mockAnonymousRoom.accessToken);
+    expect(wsConnectSpy).toHaveBeenCalledWith(
+      mockAnonymousRoom.wsTopic,
+      mockAnonymousRoom.accessToken,
+      mockAnonymousRoom.roomId,
+    );
   });
 
   /**
