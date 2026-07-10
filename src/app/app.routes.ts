@@ -1,9 +1,10 @@
 import { Routes } from '@angular/router';
 
 /**
- * Squelette de bootstrap — routes métier ajoutées au fil du développement (US tracées
- * `pivot-docs`). `wheels/*` (US14.1.1) et `retro/create` (US20.1.1) sont les premières
- * features réelles de ce module.
+ * Routes métier ajoutées au fil du développement (US tracées `pivot-docs`). `wheels/*`
+ * (US14.1.1), `retro/create` (US20.1.1) et `scrum-poker/rooms/new` (US09.1.1) sont les
+ * premières features réelles de ce module. Chaque feature reste lazy-loaded — jamais de
+ * barrel d'import massif.
  */
 export const routes: Routes = [
   {
@@ -32,6 +33,13 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/retro/create-session/create-session.component').then(
         m => m.CreateSessionComponent,
+      ),
+  },
+  {
+    path: 'scrum-poker/rooms/new',
+    loadComponent: () =>
+      import('./features/scrum-poker/create-room/create-room.component').then(
+        m => m.CreateRoomComponent,
       ),
   },
 ];

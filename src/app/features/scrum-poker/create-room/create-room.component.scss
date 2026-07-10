@@ -1,0 +1,106 @@
+// Styles minimaux, auto-contenus (pas de tokens @pivot/design-system — EN17.2, repo pas
+// encore créé, voir CLAUDE.md). Contraste vérifié WCAG 2.1 AA (texte normal >= 4.5:1).
+
+.create-room {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.create-room__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.create-room__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.create-room__label {
+  font-weight: 600;
+}
+
+.create-room__input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #58606b;
+  border-radius: 0.25rem;
+  font-size: 1rem;
+
+  &[aria-invalid='true'] {
+    border-color: #b3261e;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #0b5fff;
+    outline-offset: 1px;
+  }
+}
+
+.create-room__error {
+  color: #b3261e;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.create-room__submit,
+.create-room__copy,
+.create-room__another {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  border: 1px solid transparent;
+  font-size: 1rem;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid #0b5fff;
+    outline-offset: 1px;
+  }
+}
+
+.create-room__submit {
+  background: #0b5fff;
+  color: #fff;
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.create-room__copy,
+.create-room__another {
+  background: transparent;
+  border-color: #58606b;
+  color: #1a1c1e;
+}
+
+.create-room__summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 1rem 0;
+
+  dt {
+    font-weight: 600;
+  }
+
+  dd {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+.create-room__invite-code {
+  font-family: monospace;
+  font-size: 1.25rem;
+  letter-spacing: 0.1em;
+}
+
+.create-room__copy-announcement {
+  font-size: 0.875rem;
+}
