@@ -3,12 +3,15 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
+  CloseContributionResponse,
   CreateRetroFormatRequest,
   CreateRetroSessionRequest,
   RetroFormatDefinition,
   RetroFormatsResponse,
+  RetroParticipantAccessResponse,
   RetroSessionJoinResponse,
   RetroSessionResponse,
+  RevealResponse,
 } from './retro.models';
 
 /**
@@ -64,6 +67,69 @@ export class RetroApiService {
     return this.http.get<RetroSessionJoinResponse>(
       `${environment.apiUrl}/retro/sessions/join/${joinCode}`,
     );
+  }
+
+  /**
+   * Fetches a session's full detail (any phase, including `CLOSED`) — requires the caller to be
+   * an authenticated member of the session's tenant.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call: today this always
+   * 401s (no bearer token is attached anywhere in this app yet), which the session room view
+   * (US20.1.2a) treats as an expected, recoverable condition — falling back to whatever minimal
+   * data it already has from the join flow — not a hard failure.
+   *
+   * @throws HttpErrorResponse 401 no/invalid token (expected today, see class TSDoc), 404 unknown
+   *   session or belongs to another tenant.
+   */
+  getById(sessionId: string): Observable<RetroSessionResponse> {
+    return this.http.get<RetroSessionResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}`);
+  }
+
+  /**
+   * Joins a session's realtime STOMP channel (US20.1.2a), minting a fresh access grant.
+   *
+   * Deliberately callable **without** an `Authorization` header — unlike {@link create}/{@link
+   * getById} — mirroring US20.1.1's frictionless join-by-code design: an account-less
+   * participant is still granted access, simply never marked `facilitator`. When a bearer token
+   * *is* attached (once `@pivot/ui-core` is wired in) and resolves to the session's own
+   * facilitator, the response is marked `facilitator: true`.
+   *
+   * @throws HttpErrorResponse 404 unknown session, 410 session expired or already closed.
+   */
+  joinRealtimeSession(sessionId: string): Observable<RetroParticipantAccessResponse> {
+    return this.http.post<RetroParticipantAccessResponse>(
+      `${environment.apiUrl}/retro/sessions/${sessionId}/participants`,
+      {},
+    );
+  }
+
+  /**
+   * Manually closes the contribution phase (facilitator only), immediately transitioning to
+   * `REVUE` before any configured timer would have expired it.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @throws HttpErrorResponse 401 no/invalid token, 403 caller is not the facilitator, 404 unknown
+   *   session or belongs to another tenant, 409 session not currently in `CONTRIBUTION`.
+   */
+  closeContribution(sessionId: string): Observable<CloseContributionResponse> {
+    return this.http.post<CloseContributionResponse>(
+      `${environment.apiUrl}/retro/sessions/${sessionId}/contribution/close`,
+      {},
+    );
+  }
+
+  /**
+   * Triggers the reveal (facilitator only): every submitted card is broadcast in clear, grouped
+   * by column, to every participant on the session's realtime channel.
+   *
+   * See the class-level TSDoc for the current auth gap affecting this call.
+   *
+   * @throws HttpErrorResponse 401 no/invalid token, 403 caller is not the facilitator, 404 unknown
+   *   session or belongs to another tenant, 409 session has not yet reached `REVUE`.
+   */
+  reveal(sessionId: string): Observable<RevealResponse> {
+    return this.http.post<RevealResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/reveal`, {});
   }
 
   /**

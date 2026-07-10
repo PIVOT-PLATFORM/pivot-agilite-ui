@@ -141,6 +141,99 @@ export interface RetroSessionJoinResponse {
 }
 
 /**
+ * Response returned by `POST /retro/sessions/{id}/participants` (US20.1.2a) — the access grant
+ * needed to open the session's realtime STOMP channel ({@link RetroSessionWsService}).
+ *
+ * Deliberately callable without an `Authorization` header (unlike {@link
+ * RetroApiService.create}/{@link RetroApiService.getById}) — mirrors US20.1.1's frictionless
+ * join-by-code design: an account-less participant still gets a grant, simply never marked
+ * {@link facilitator}.
+ */
+export interface RetroParticipantAccessResponse {
+  /** Opaque token to present as the `access-token` native STOMP header on every SUBSCRIBE/SEND. */
+  accessToken: string;
+  ttlSeconds: number;
+  /** Whether the caller was resolved as this session's facilitator (informational only). */
+  facilitator: boolean;
+  /** Destination to subscribe to for masked card counts / phase changes / revealed cards. */
+  topicDestination: string;
+  /** Facilitator-only destination (full, un-masked `CARD_ADDED`) — `null` unless {@link facilitator}. */
+  facilitatorTopicDestination: string | null;
+  /** Destination to SEND a new card submission to. */
+  submitDestination: string;
+}
+
+/** Payload sent over STOMP SEND to `submitDestination` to submit a new card (US20.1.2a). */
+export interface SubmitCardRequest {
+  content: string;
+  columnKey: string;
+  anonymous: boolean;
+}
+
+/**
+ * `CARD_ADDED` event received on {@link RetroParticipantAccessResponse.topicDestination} —
+ * masked: only a running count for the target column, never the content or card id (US20.1.2a
+ * security AC — verified server-side by `RetroCardSubmissionIT`'s raw-payload inspection).
+ */
+export interface CardAddedMaskedEvent {
+  type: 'CARD_ADDED';
+  sessionId: string;
+  columnKey: string;
+  cardCount: number;
+}
+
+/**
+ * `CARD_ADDED` event received on {@link RetroParticipantAccessResponse.facilitatorTopicDestination}
+ * — full, un-masked content. Never rendered via `[innerHTML]` (US20.1.2a security AC).
+ */
+export interface CardAddedFacilitatorEvent {
+  type: 'CARD_ADDED';
+  sessionId: string;
+  cardId: string;
+  columnKey: string;
+  content: string;
+  anonymous: boolean;
+}
+
+/** `PHASE_CHANGED` event received on the regular session topic (US20.1.2a). */
+export interface PhaseChangedEvent {
+  type: 'PHASE_CHANGED';
+  sessionId: string;
+  previousPhase: RetroPhase;
+  currentPhase: RetroPhase;
+  /** ISO instant. */
+  changedAt: string;
+}
+
+/** A single revealed card — content in clear, deliberately never authorship (US20.1.2a). */
+export interface RevealedCard {
+  id: string;
+  content: string;
+}
+
+/** `CARDS_REVEALED` event received on the regular session topic (US20.1.2a). */
+export interface CardsRevealedEvent {
+  type: 'CARDS_REVEALED';
+  sessionId: string;
+  columns: Record<string, RevealedCard[]>;
+}
+
+/** Discriminated union of every event type carried on the regular session topic. */
+export type RetroSessionTopicEvent = CardAddedMaskedEvent | PhaseChangedEvent | CardsRevealedEvent;
+
+/** Response body for `POST /retro/sessions/{id}/contribution/close` (US20.1.2a). */
+export interface CloseContributionResponse {
+  currentPhase: RetroPhase;
+}
+
+/** Response body for `POST /retro/sessions/{id}/reveal` (US20.1.2a) — same shape as {@link CardsRevealedEvent}. */
+export interface RevealResponse {
+  sessionId: string;
+  cardCount: number;
+  columns: Record<string, RevealedCard[]>;
+}
+
+/**
  * RFC 7807 `ProblemDetail` error shape returned by `pivot-agilite-core` (Spring's
  * `ProblemDetail` with a `code` property added via `setProperties`).
  */
