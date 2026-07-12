@@ -2,6 +2,36 @@
   "home": {
     "title": "PIVOT Agilité"
   },
+  "hub": {
+    "title": "Agilité",
+    "subtitle": "Daily, tirage au sort et capacité de l’équipe.",
+    "tabs": {
+      "daily": "Daily",
+      "wheel": "Roue d’équipe",
+      "capacity": "Capacity"
+    },
+    "daily": {
+      "todayTitle": "Daily du jour",
+      "sprintTasks": "Tâches du sprint en cours",
+      "history": "Historique des dailies"
+    },
+    "wheel": {
+      "goalLabel": "Tirage au sort :",
+      "goalTarget": "Animateur du daily",
+      "spinning": "Tirage en cours…",
+      "spin": "Lancer le tirage",
+      "resultLabel": "Animateur du daily désigné",
+      "history": "Historique des tirages"
+    },
+    "capacity": {
+      "velocity": "Vélocité — 6 derniers sprints",
+      "chargeTitle": "Charge vs capacité",
+      "legendOver": "Surcharge",
+      "legendBalanced": "Équilibré",
+      "legendUnder": "Sous-charge",
+      "days": "{{charge}}j / {{capacity}}j"
+    }
+  },
   "wheels": {
     "list": {
       "title": "Mes roues",

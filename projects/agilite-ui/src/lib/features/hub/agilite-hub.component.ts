@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import {
   HubTab,
   HubView,
@@ -24,14 +25,15 @@ const SPIN_MS = 3450;
  * feature. Wiring each tab to a real endpoint (wheel API first) is the follow-up; the pure model
  * split ({@link agilite-hub.model}) keeps that swap isolated from this component.
  *
- * i18n: labels are still inline pending the module-wide Transloco catalogue wiring (a separate gap
- * shared by every pilotage/agilité screen) — externalised in the same follow-up.
+ * i18n: the static chrome (titles, tabs, legends, buttons) is externalised under the `hub.*`
+ * Transloco namespace. The row values ({@link buildHubView} — member names, dates, notes) are
+ * deliberate demo data destined for the backend, not UI labels, so they stay in the model.
  */
 @Component({
   selector: 'app-agilite-hub',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [],
+  imports: [TranslocoPipe],
   templateUrl: './agilite-hub.component.html',
   styleUrl: './agilite-hub.component.scss',
 })

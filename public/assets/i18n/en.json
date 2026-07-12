@@ -2,6 +2,36 @@
   "home": {
     "title": "PIVOT Agility"
   },
+  "hub": {
+    "title": "Agility",
+    "subtitle": "Daily, team draw and capacity.",
+    "tabs": {
+      "daily": "Daily",
+      "wheel": "Team wheel",
+      "capacity": "Capacity"
+    },
+    "daily": {
+      "todayTitle": "Today’s daily",
+      "sprintTasks": "Current sprint tasks",
+      "history": "Daily history"
+    },
+    "wheel": {
+      "goalLabel": "Random draw:",
+      "goalTarget": "Daily facilitator",
+      "spinning": "Spinning…",
+      "spin": "Spin the wheel",
+      "resultLabel": "Daily facilitator drawn",
+      "history": "Draw history"
+    },
+    "capacity": {
+      "velocity": "Velocity — last 6 sprints",
+      "chargeTitle": "Load vs capacity",
+      "legendOver": "Overloaded",
+      "legendBalanced": "Balanced",
+      "legendUnder": "Underloaded",
+      "days": "{{charge}}d / {{capacity}}d"
+    }
+  },
   "wheels": {
     "list": {
       "title": "My wheels",

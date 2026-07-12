@@ -1,7 +1,7 @@
 <section class="agh">
   <header class="agh__head">
-    <h1 class="agh__title">Agilité</h1>
-    <p class="agh__subtitle">Daily, tirage au sort et capacité de l'équipe — Sprint 14.</p>
+    <h1 class="agh__title">{{ 'hub.title' | transloco }}</h1>
+    <p class="agh__subtitle">{{ 'hub.subtitle' | transloco }}</p>
   </header>
 
   <div class="agh__tabs" role="tablist">
@@ -13,7 +13,7 @@
       [attr.aria-selected]="tab() === 'daily'"
       (click)="select('daily')"
     >
-      Daily
+      {{ 'hub.tabs.daily' | transloco }}
     </button>
     <button
       type="button"
@@ -23,7 +23,7 @@
       [attr.aria-selected]="tab() === 'wheel'"
       (click)="select('wheel')"
     >
-      Roue d'équipe
+      {{ 'hub.tabs.wheel' | transloco }}
     </button>
     <button
       type="button"
@@ -33,7 +33,7 @@
       [attr.aria-selected]="tab() === 'capacity'"
       (click)="select('capacity')"
     >
-      Capacity
+      {{ 'hub.tabs.capacity' | transloco }}
     </button>
   </div>
 
@@ -43,8 +43,7 @@
       <div class="agh__col agh__col--main">
         <div class="pv-card agh__card">
           <div class="agh__card-head">
-            <span class="agh__card-title">Daily du 12 juillet</span>
-            <span class="agh__mono agh__muted">Sprint 14 · 6 → 17 juillet</span>
+            <span class="agh__card-title">{{ 'hub.daily.todayTitle' | transloco }}</span>
           </div>
           @for (m of view.team; track m.id) {
             <div class="agh__row">
@@ -61,7 +60,7 @@
         </div>
 
         <div class="pv-card agh__card">
-          <div class="agh__card-title agh__card-title--block">Tâches du sprint en cours</div>
+          <div class="agh__card-title agh__card-title--block">{{ 'hub.daily.sprintTasks' | transloco }}</div>
           @for (t of view.sprintTasks; track t.name) {
             <div class="agh__row">
               <div class="agh__row-body agh__row-body--task">{{ t.name }}</div>
@@ -74,7 +73,7 @@
 
       <div class="agh__col agh__col--side">
         <div class="pv-card agh__card">
-          <div class="agh__card-title agh__card-title--block">Historique des dailies</div>
+          <div class="agh__card-title agh__card-title--block">{{ 'hub.daily.history' | transloco }}</div>
           @for (h of view.history; track h.dateLabel) {
             <div class="agh__hist">
               <div class="agh__hist-head">
@@ -97,7 +96,7 @@
   @if (tab() === 'wheel') {
     <div class="agh__cols">
       <div class="pv-card agh__card agh__wheel-card">
-        <p class="agh__wheel-goal">Tirage au sort : <strong>Animateur du daily</strong></p>
+        <p class="agh__wheel-goal">{{ 'hub.wheel.goalLabel' | transloco }} <strong>{{ 'hub.wheel.goalTarget' | transloco }}</strong></p>
         <div class="agh__wheel-stage">
           <span class="agh__wheel-pointer" aria-hidden="true"></span>
           <div
@@ -114,18 +113,18 @@
           <span class="agh__wheel-hub" aria-hidden="true"></span>
         </div>
         <button type="button" class="btn btn-primary" [disabled]="spinning()" (click)="spin()">
-          {{ spinning() ? 'Tirage en cours…' : 'Lancer le tirage' }}
+          {{ (spinning() ? 'hub.wheel.spinning' : 'hub.wheel.spin') | transloco }}
         </button>
         @if (result(); as r) {
-          <div class="agh__result" role="status">
-            <div class="agh__result-label">Animateur du daily désigné</div>
+          <output class="agh__result">
+            <div class="agh__result-label">{{ 'hub.wheel.resultLabel' | transloco }}</div>
             <div class="agh__result-name">{{ r.name }}</div>
-          </div>
+          </output>
         }
       </div>
 
       <div class="pv-card agh__card agh__wheel-hist">
-        <div class="agh__card-title agh__card-title--block">Historique des tirages</div>
+        <div class="agh__card-title agh__card-title--block">{{ 'hub.wheel.history' | transloco }}</div>
         @for (w of view.wheelHistory; track w.dateLabel) {
           <div class="agh__row">
             <span class="pv-avatar">{{ w.initials }}</span>
@@ -141,7 +140,7 @@
   @if (tab() === 'capacity') {
     <div class="agh__stack">
       <div class="pv-card agh__card">
-        <div class="agh__card-title agh__card-title--block">Vélocité — 6 derniers sprints</div>
+        <div class="agh__card-title agh__card-title--block">{{ 'hub.capacity.velocity' | transloco }}</div>
         <div class="agh__velocity">
           @for (v of view.velocity; track v.label) {
             <div class="agh__vbar-col">
@@ -155,11 +154,11 @@
 
       <div class="pv-card agh__card">
         <div class="agh__card-head">
-          <span class="agh__card-title">Charge vs capacité — Sprint 14</span>
+          <span class="agh__card-title">{{ 'hub.capacity.chargeTitle' | transloco }}</span>
           <div class="agh__legend">
-            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--over"></span>Surcharge</span>
-            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--balanced"></span>Équilibré</span>
-            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--under"></span>Sous-charge</span>
+            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--over"></span>{{ 'hub.capacity.legendOver' | transloco }}</span>
+            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--balanced"></span>{{ 'hub.capacity.legendBalanced' | transloco }}</span>
+            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--under"></span>{{ 'hub.capacity.legendUnder' | transloco }}</span>
           </div>
         </div>
         @for (c of view.capacity; track c.name) {
@@ -169,7 +168,7 @@
             <div class="agh__cap-track">
               <div class="agh__cap-fill" [class]="'agh__cap-fill--' + c.kind" [style.width.%]="c.barWidth"></div>
             </div>
-            <span class="agh__mono agh__muted agh__cap-days">{{ c.chargeDays }}j / {{ c.capacityDays }}j</span>
+            <span class="agh__mono agh__muted agh__cap-days">{{ 'hub.capacity.days' | transloco: { charge: c.chargeDays, capacity: c.capacityDays } }}</span>
             <span class="agh__cap-ratio" [class]="'agh__cap-ratio--' + c.kind">{{ c.ratioLabel }}</span>
           </div>
         }

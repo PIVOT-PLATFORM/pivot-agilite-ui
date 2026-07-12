@@ -237,6 +237,7 @@
     box-shadow: var(--shadow-sm);
   }
   &__result {
+    display: block;
     width: 100%;
     padding: 14px;
     border-radius: var(--radius-lg);
