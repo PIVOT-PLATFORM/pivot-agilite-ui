@@ -1,0 +1,179 @@
+<section class="agh">
+  <header class="agh__head">
+    <h1 class="agh__title">Agilité</h1>
+    <p class="agh__subtitle">Daily, tirage au sort et capacité de l'équipe — Sprint 14.</p>
+  </header>
+
+  <div class="agh__tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="agh__tab"
+      [class.agh__tab--active]="tab() === 'daily'"
+      [attr.aria-selected]="tab() === 'daily'"
+      (click)="select('daily')"
+    >
+      Daily
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="agh__tab"
+      [class.agh__tab--active]="tab() === 'wheel'"
+      [attr.aria-selected]="tab() === 'wheel'"
+      (click)="select('wheel')"
+    >
+      Roue d'équipe
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="agh__tab"
+      [class.agh__tab--active]="tab() === 'capacity'"
+      [attr.aria-selected]="tab() === 'capacity'"
+      (click)="select('capacity')"
+    >
+      Capacity
+    </button>
+  </div>
+
+  <!-- ===== DAILY ===== -->
+  @if (tab() === 'daily') {
+    <div class="agh__cols">
+      <div class="agh__col agh__col--main">
+        <div class="pv-card agh__card">
+          <div class="agh__card-head">
+            <span class="agh__card-title">Daily du 12 juillet</span>
+            <span class="agh__mono agh__muted">Sprint 14 · 6 → 17 juillet</span>
+          </div>
+          @for (m of view.team; track m.id) {
+            <div class="agh__row">
+              <span class="agh__avatar">{{ m.initials }}</span>
+              <div class="agh__row-body">
+                <div class="agh__row-name">{{ m.name }}</div>
+                @if (m.note) {
+                  <div class="agh__row-note">{{ m.note }}</div>
+                }
+              </div>
+              <span class="agh__badge" [class]="'agh__badge--' + m.statusKind">{{ m.statusLabel }}</span>
+            </div>
+          }
+        </div>
+
+        <div class="pv-card agh__card">
+          <div class="agh__card-title agh__card-title--block">Tâches du sprint en cours</div>
+          @for (t of view.sprintTasks; track t.name) {
+            <div class="agh__row">
+              <div class="agh__row-body agh__row-body--task">{{ t.name }}</div>
+              <span class="agh__avatar agh__avatar--sm">{{ t.initials }}</span>
+              <span class="agh__badge agh__badge--fixed" [class]="'agh__badge--' + t.statusKind">{{ t.statusLabel }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="agh__col agh__col--side">
+        <div class="pv-card agh__card">
+          <div class="agh__card-title agh__card-title--block">Historique des dailies</div>
+          @for (h of view.history; track h.dateLabel) {
+            <div class="agh__hist">
+              <div class="agh__hist-head">
+                <span class="agh__hist-date">{{ h.dateLabel }}</span>
+                <span class="agh__dots">
+                  @for (d of h.dots; track $index) {
+                    <span class="agh__dot" [class]="'agh__dot--' + d"></span>
+                  }
+                </span>
+              </div>
+              <div class="agh__row-note">{{ h.note }}</div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ===== ROUE ===== -->
+  @if (tab() === 'wheel') {
+    <div class="agh__cols">
+      <div class="pv-card agh__card agh__wheel-card">
+        <p class="agh__wheel-goal">Tirage au sort : <strong>Animateur du daily</strong></p>
+        <div class="agh__wheel-stage">
+          <span class="agh__wheel-pointer" aria-hidden="true"></span>
+          <div
+            class="agh__wheel"
+            [style.background]="view.wheelGradient"
+            [style.transform]="'rotate(' + wheelRotation() + 'deg)'"
+          >
+            @for (s of view.wheelSlices; track s.initials) {
+              <div class="agh__wheel-slice" [style.transform]="'rotate(' + s.angle + 'deg)'">
+                <span class="agh__wheel-label" [style.transform]="'rotate(' + s.counter + 'deg)'">{{ s.initials }}</span>
+              </div>
+            }
+          </div>
+          <span class="agh__wheel-hub" aria-hidden="true"></span>
+        </div>
+        <button type="button" class="btn btn-primary" [disabled]="spinning()" (click)="spin()">
+          {{ spinning() ? 'Tirage en cours…' : 'Lancer le tirage' }}
+        </button>
+        @if (result(); as r) {
+          <div class="agh__result" role="status">
+            <div class="agh__result-label">Animateur du daily désigné</div>
+            <div class="agh__result-name">{{ r.name }}</div>
+          </div>
+        }
+      </div>
+
+      <div class="pv-card agh__card agh__wheel-hist">
+        <div class="agh__card-title agh__card-title--block">Historique des tirages</div>
+        @for (w of view.wheelHistory; track w.dateLabel) {
+          <div class="agh__row">
+            <span class="agh__avatar">{{ w.initials }}</span>
+            <div class="agh__row-body">{{ w.name }}</div>
+            <span class="agh__mono agh__muted">{{ w.dateLabel }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- ===== CAPACITY ===== -->
+  @if (tab() === 'capacity') {
+    <div class="agh__stack">
+      <div class="pv-card agh__card">
+        <div class="agh__card-title agh__card-title--block">Vélocité — 6 derniers sprints</div>
+        <div class="agh__velocity">
+          @for (v of view.velocity; track v.label) {
+            <div class="agh__vbar-col">
+              <span class="agh__vbar-val">{{ v.points }}</span>
+              <div class="agh__vbar" [style.height.%]="v.heightPct"></div>
+              <span class="agh__vbar-label">{{ v.label }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="pv-card agh__card">
+        <div class="agh__card-head">
+          <span class="agh__card-title">Charge vs capacité — Sprint 14</span>
+          <div class="agh__legend">
+            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--over"></span>Surcharge</span>
+            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--balanced"></span>Équilibré</span>
+            <span class="agh__legend-item"><span class="agh__swatch agh__swatch--under"></span>Sous-charge</span>
+          </div>
+        </div>
+        @for (c of view.capacity; track c.name) {
+          <div class="agh__cap-row">
+            <span class="agh__avatar">{{ c.initials }}</span>
+            <span class="agh__cap-name">{{ c.name }}</span>
+            <div class="agh__cap-track">
+              <div class="agh__cap-fill" [class]="'agh__cap-fill--' + c.kind" [style.width.%]="c.barWidth"></div>
+            </div>
+            <span class="agh__mono agh__muted agh__cap-days">{{ c.chargeDays }}j / {{ c.capacityDays }}j</span>
+            <span class="agh__cap-ratio" [class]="'agh__cap-ratio--' + c.kind">{{ c.ratioLabel }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>

@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
+import { AGILITE_API_URL } from '../../../core/config/tokens';
 import {
   AntiRepeatMode,
   CreateWheelRequest,
@@ -24,7 +24,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class WheelApiService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = environment.apiUrl;
+  private readonly baseUrl = inject(AGILITE_API_URL);
 
   /**
    * Lists the caller's own teams.

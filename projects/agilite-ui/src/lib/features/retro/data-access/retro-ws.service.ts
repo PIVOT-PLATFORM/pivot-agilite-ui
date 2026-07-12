@@ -1,7 +1,7 @@
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { Observable, Subject, Subscription } from 'rxjs';
-import { environment } from '../../../../environments/environment';
+import { AGILITE_WS_URL } from '../../../core/config/tokens';
 import { CastVoteRequest, RetroParticipantAccessResponse, SubmitCardRequest } from './retro.models';
 
 /**
@@ -76,6 +76,7 @@ export const STOMP_CLIENT_FACTORY = new InjectionToken<() => StompClient>('RETRO
 @Injectable({ providedIn: 'root' })
 export class RetroSessionWsService {
   private readonly createClient = inject(STOMP_CLIENT_FACTORY);
+  private readonly wsBaseUrl = inject(AGILITE_WS_URL);
 
   /** Current connection status. */
   readonly status = signal<RetroConnectionStatus>('connecting');
@@ -261,7 +262,7 @@ export class RetroSessionWsService {
 
   /** See `RoomWsService.buildWsUrl`'s identical logic/rationale. */
   private buildWsUrl(): string {
-    const wsUrl = environment.wsUrl;
+    const wsUrl = this.wsBaseUrl;
     if (/^wss?:\/\//.test(wsUrl)) {
       return wsUrl;
     }

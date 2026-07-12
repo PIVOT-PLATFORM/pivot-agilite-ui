@@ -1,78 +1,20 @@
 import { Routes } from '@angular/router';
+import { AGILITE_ROUTES } from '../../projects/agilite-ui/src/public-api';
 
 /**
- * Routes métier ajoutées au fil du développement (US tracées `pivot-docs`). `wheels/*`
- * (US14.1.1 — liste/formulaire ; US14.2.1 — page de détail `wheels/:wheelId`, tirage pondéré),
- * `retro/create` (US20.1.1), `scrum-poker/rooms/new` (US09.1.1) et
- * `scrum-poker/rooms/join` (US09.1.2) sont les premières features réelles de ce module.
- * Chaque feature reste lazy-loaded — jamais de barrel d'import massif.
+ * Standalone dev harness only (nginx port 8090) — mounts the agilite module's real feature routes
+ * (`AGILITE_ROUTES`) imported directly from the `agilite-ui` library project's public API (single
+ * source of truth, mirrors EN17.9). The real shell (`pivot-ui`) consumes the published
+ * `@pivot-platform/agilite-ui` package instead, mounting the same routes under a guarded path.
+ *
+ * The bare `''` landing (home) is the harness's own bootstrap placeholder — deliberately NOT part
+ * of `AGILITE_ROUTES` (the shell owns the module's landing/home). Each feature route stays
+ * lazy-loaded via the library's own `loadComponent` imports.
  */
 export const routes: Routes = [
   {
     path: '',
     loadComponent: () => import('./features/home/home.component').then(m => m.HomeComponent),
   },
-  {
-    path: 'wheels',
-    loadComponent: () =>
-      import('./features/wheels/wheel-list/wheel-list.component').then(m => m.WheelListComponent),
-  },
-  {
-    path: 'wheels/new',
-    loadComponent: () =>
-      import('./features/wheels/wheel-form/wheel-form.component').then(m => m.WheelFormComponent),
-  },
-  {
-    path: 'wheels/:wheelId/edit',
-    loadComponent: () =>
-      import('./features/wheels/wheel-form/wheel-form.component').then(m => m.WheelFormComponent),
-  },
-  {
-    // US14.2.1 — page de détail : tirage pondéré anti-repeat + historique des tirages.
-    path: 'wheels/:wheelId',
-    loadComponent: () =>
-      import('./features/wheels/wheel-detail/wheel-detail.component').then(
-        m => m.WheelDetailComponent,
-      ),
-  },
-  {
-    // US20.1.1 — création d'une session de rétrospective. Pas de guard ici : ModuleGuard
-    // (@pivot/ui-core) n'est pas encore consommable dans ce repo (cf. CLAUDE.md, TODO-SETUP.md).
-    path: 'retro/create',
-    loadComponent: () =>
-      import('./features/retro/create-session/create-session.component').then(
-        m => m.CreateSessionComponent,
-      ),
-  },
-  {
-    // US20.1.2a — animation temps réel (contribution masquée + révélation) d'une session.
-    path: 'retro/sessions/:sessionId',
-    loadComponent: () =>
-      import('./features/retro/session-room/session-room.component').then(
-        m => m.SessionRoomComponent,
-      ),
-  },
-  {
-    // US20.3.1 — "Actions de l'équipe" : consultable hors contexte de session, filtrable par
-    // statut, triable par échéance.
-    path: 'retro/teams/:teamId/actions',
-    loadComponent: () =>
-      import('./features/retro/team-actions/team-actions.component').then(
-        m => m.TeamActionsComponent,
-      ),
-  },
-  {
-    path: 'scrum-poker/rooms/new',
-    loadComponent: () =>
-      import('./features/scrum-poker/create-room/create-room.component').then(
-        m => m.CreateRoomComponent,
-      ),
-  },
-  {
-    path: 'scrum-poker/rooms/join',
-    loadComponent: () =>
-      import('./features/scrum-poker/join-room/join-room.component').then(
-        m => m.JoinRoomComponent,
-      ),
-  },
+  ...AGILITE_ROUTES,
 ];

@@ -27,6 +27,12 @@
     },
     {
       "path": "./tsconfig.spec.json"
+    },
+    {
+      "path": "./projects/agilite-ui/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/agilite-ui/tsconfig.spec.json"
     }
   ]
 }
