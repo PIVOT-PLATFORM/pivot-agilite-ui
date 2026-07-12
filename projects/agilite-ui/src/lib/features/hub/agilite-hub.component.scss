@@ -138,54 +138,7 @@
     margin-top: 4px;
   }
 
-  &__avatar {
-    width: 26px;
-    height: 26px;
-    flex-shrink: 0;
-    border-radius: 999px;
-    background: var(--color-brand-100);
-    color: var(--color-brand-700);
-    font-size: 11px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    &--sm {
-      width: 24px;
-      height: 24px;
-      font-size: 10px;
-    }
-  }
-
-  // --- Badges ---
-  &__badge {
-    font-size: var(--text-xs);
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 999px;
-    flex-shrink: 0;
-    white-space: nowrap;
-    &--fixed {
-      width: 64px;
-      text-align: center;
-    }
-    &--ok {
-      background: var(--color-success-light);
-      color: var(--color-success-dark);
-    }
-    &--progress {
-      background: var(--color-brand-100);
-      color: var(--color-brand-700);
-    }
-    &--blocked {
-      background: var(--color-error-light);
-      color: var(--color-error-dark);
-    }
-    &--todo {
-      background: var(--color-gray-100);
-      color: var(--color-gray-500);
-    }
-  }
+  // Avatar → DS `.pv-avatar` (+ `--sm`). Badges → `.pv-badge` + `.pv-tone-*`.
 
   // --- History (daily) ---
   &__hist {
@@ -209,21 +162,7 @@
     display: flex;
     gap: 3px;
   }
-  &__dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
-    display: inline-block;
-    &--ok {
-      background: var(--color-success);
-    }
-    &--progress {
-      background: var(--color-brand-500);
-    }
-    &--blocked {
-      background: var(--color-error);
-    }
-  }
+  // Point de statut → DS `.pv-dot` + `.pv-tone-*`.
 
   // --- Wheel ---
   &__wheel-card {

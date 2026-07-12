@@ -98,17 +98,18 @@ const WHEEL_COLORS = [
   'var(--color-gray-200)',
 ];
 
+// `kind` = nom de TON du design system (`.pv-tone-*`), consommé tel quel par pv-badge / pv-dot.
 const STATUS_META: Record<DailyStatus, { label: string; kind: string }> = {
-  fait: { label: 'Fait', kind: 'ok' },
-  cours: { label: 'En cours', kind: 'progress' },
-  bloque: { label: 'Bloqué', kind: 'blocked' },
+  fait: { label: 'Fait', kind: 'success' },
+  cours: { label: 'En cours', kind: 'brand' },
+  bloque: { label: 'Bloqué', kind: 'danger' },
 };
 const TASK_STATUS_META: Record<TaskStatus, { label: string; kind: string }> = {
-  termine: { label: 'Terminé', kind: 'ok' },
-  cours: { label: 'En cours', kind: 'progress' },
-  faire: { label: 'À faire', kind: 'todo' },
+  termine: { label: 'Terminé', kind: 'success' },
+  cours: { label: 'En cours', kind: 'brand' },
+  faire: { label: 'À faire', kind: 'neutral' },
 };
-const DOT_KIND: Record<'fait' | 'cours' | 'bloque', string> = { fait: 'ok', cours: 'progress', bloque: 'blocked' };
+const DOT_KIND: Record<'fait' | 'cours' | 'bloque', string> = { fait: 'success', cours: 'brand', bloque: 'danger' };
 
 export interface HubDailyMember extends TeamMember {
   readonly note: string | null;

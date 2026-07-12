@@ -48,14 +48,14 @@
           </div>
           @for (m of view.team; track m.id) {
             <div class="agh__row">
-              <span class="agh__avatar">{{ m.initials }}</span>
+              <span class="pv-avatar">{{ m.initials }}</span>
               <div class="agh__row-body">
                 <div class="agh__row-name">{{ m.name }}</div>
                 @if (m.note) {
                   <div class="agh__row-note">{{ m.note }}</div>
                 }
               </div>
-              <span class="agh__badge" [class]="'agh__badge--' + m.statusKind">{{ m.statusLabel }}</span>
+              <span class="pv-badge" [class]="'pv-tone-' + m.statusKind">{{ m.statusLabel }}</span>
             </div>
           }
         </div>
@@ -65,8 +65,8 @@
           @for (t of view.sprintTasks; track t.name) {
             <div class="agh__row">
               <div class="agh__row-body agh__row-body--task">{{ t.name }}</div>
-              <span class="agh__avatar agh__avatar--sm">{{ t.initials }}</span>
-              <span class="agh__badge agh__badge--fixed" [class]="'agh__badge--' + t.statusKind">{{ t.statusLabel }}</span>
+              <span class="pv-avatar pv-avatar--sm">{{ t.initials }}</span>
+              <span class="pv-badge pv-badge--fixed" [class]="'pv-tone-' + t.statusKind">{{ t.statusLabel }}</span>
             </div>
           }
         </div>
@@ -81,7 +81,7 @@
                 <span class="agh__hist-date">{{ h.dateLabel }}</span>
                 <span class="agh__dots">
                   @for (d of h.dots; track $index) {
-                    <span class="agh__dot" [class]="'agh__dot--' + d"></span>
+                    <span class="pv-dot" [class]="'pv-tone-' + d"></span>
                   }
                 </span>
               </div>
@@ -128,7 +128,7 @@
         <div class="agh__card-title agh__card-title--block">Historique des tirages</div>
         @for (w of view.wheelHistory; track w.dateLabel) {
           <div class="agh__row">
-            <span class="agh__avatar">{{ w.initials }}</span>
+            <span class="pv-avatar">{{ w.initials }}</span>
             <div class="agh__row-body">{{ w.name }}</div>
             <span class="agh__mono agh__muted">{{ w.dateLabel }}</span>
           </div>
@@ -164,7 +164,7 @@
         </div>
         @for (c of view.capacity; track c.name) {
           <div class="agh__cap-row">
-            <span class="agh__avatar">{{ c.initials }}</span>
+            <span class="pv-avatar">{{ c.initials }}</span>
             <span class="agh__cap-name">{{ c.name }}</span>
             <div class="agh__cap-track">
               <div class="agh__cap-fill" [class]="'agh__cap-fill--' + c.kind" [style.width.%]="c.barWidth"></div>
