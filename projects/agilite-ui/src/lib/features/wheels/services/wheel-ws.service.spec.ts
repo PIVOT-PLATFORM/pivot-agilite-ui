@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { RxStompState } from '@stomp/rx-stomp';
 import { Subject } from 'rxjs';
-import { environment } from '../../../../environments/environment';
+import { AGILITE_WS_URL } from '../../../core/config/tokens';
 import { StompClient, WHEEL_STOMP_CLIENT_FACTORY, WheelWsService, wheelTopic } from './wheel-ws.service';
 
 /**
@@ -142,17 +142,19 @@ describe('WheelWsService', () => {
     expect(service.status()).toBe('connected');
   });
 
-  it('resolves a relative environment.wsUrl (nginx-proxied prod build) against the page origin', () => {
-    const original = environment.wsUrl;
-    environment.wsUrl = '/ws/agilite';
-    try {
-      service.connect(WHEEL_ID, AUTH_TOKEN);
-      const cfg = fake.configureCalls[0] as { brokerURL: string };
-      const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      expect(cfg.brokerURL).toBe(`${scheme}://${window.location.host}/ws/agilite`);
-    } finally {
-      environment.wsUrl = original;
-    }
+  it('resolves a relative wsUrl (nginx-proxied prod build) against the page origin', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: WHEEL_STOMP_CLIENT_FACTORY, useValue: () => activeFake.current },
+        { provide: AGILITE_WS_URL, useValue: '/ws/agilite' },
+      ],
+    });
+    const relService = TestBed.inject(WheelWsService);
+    relService.connect(WHEEL_ID, AUTH_TOKEN);
+    const cfg = fake.configureCalls[0] as { brokerURL: string };
+    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    expect(cfg.brokerURL).toBe(`${scheme}://${window.location.host}/ws/agilite`);
   });
 
   it('resets to "connecting" on a fresh connect() call after a prior error', () => {
