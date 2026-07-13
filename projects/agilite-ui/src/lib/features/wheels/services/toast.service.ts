@@ -1,49 +1,91 @@
 import { Injectable, signal } from '@angular/core';
 
-/** ARIA live-region role the consumer must render the toast with. */
-export type ToastKind = 'status' | 'alert';
+/**
+ * Types visuels de toast — contrat canonique du design system PIVOT
+ * (`@pivot-platform/design-system`).
+ */
+export type ToastType = 'info' | 'success' | 'warning' | 'error';
 
-/** A single toast notification. */
-export interface Toast {
-  readonly kind: ToastKind;
-  readonly message: string;
+/** Lien d'action optionnel affiché dans un toast (clé Transloco, jamais de libellé en dur). */
+export interface ToastAction {
+  /** Clé de traduction Transloco du libellé du lien. */
+  labelKey: string;
+  /** Cible de routing Angular. */
+  route: string;
 }
 
+/** Un toast affiché par le conteneur global (clé Transloco, jamais de libellé en dur). */
+export interface Toast {
+  /** Identifiant unique (généré par le service). */
+  id: number;
+  /** Clé de traduction Transloco du message — traduite au rendu. */
+  messageKey: string;
+  /** Type visuel — pilote le modificateur BEM et la live region ARIA. */
+  type: ToastType;
+  /** Paramètres d'interpolation Transloco optionnels. */
+  params?: Record<string, string | number>;
+  /** Lien d'action optionnel. */
+  action?: ToastAction;
+}
+
+/** Durée d'affichage avant fermeture automatique (ms). */
+export const TOAST_AUTO_DISMISS_MS = 8000;
+
 /**
- * Minimal in-memory toast notification store.
+ * Service global de notifications toast.
  *
- * There is no shared design system yet (`@pivot/design-system`, EN17.2, not created) to host a
- * global toast overlay, so each consuming component renders its own toast region from
- * {@link ToastService#current} — `kind` maps directly to the ARIA live-region role
- * (`role="status"` for success, `role="alert"` for errors).
+ * **Aligné sur le contrat canonique de `@pivot-platform/design-system`** (réconciliation
+ * du `ToastService`, EN17.13) : mêmes signatures, types et interfaces que le DS, de sorte
+ * que le passage au package publié (EN17.2/EN17.3) se réduira à
+ * `export { ToastService } from '@pivot-platform/design-system'` et à la suppression de ce
+ * fichier — sans toucher aux appelants.
+ *
+ * Le message est une **clé Transloco** (traduite au rendu par le conteneur toast — chaque
+ * consommateur rend `toasts()` et mappe `type` sur la live region ARIA : `role="status"`
+ * pour `info`/`success`, `role="alert"` pour `warning`/`error`). Chaque toast est auto-fermé
+ * après {@link TOAST_AUTO_DISMISS_MS} et peut être fermé via {@link dismiss}.
  */
 @Injectable({ providedIn: 'root' })
 export class ToastService {
-  private readonly toastSignal = signal<Toast | null>(null);
+  private readonly _toasts = signal<Toast[]>([]);
+  private nextId = 0;
 
-  /** The current toast to display, or `null` if none. */
-  readonly current = this.toastSignal.asReadonly();
+  /** Liste réactive des toasts actuellement affichés. */
+  readonly toasts = this._toasts.asReadonly();
 
   /**
-   * Shows a success/confirmation toast (`role="status"`).
+   * Affiche un toast. Dédupliqué si une clé + params identiques est déjà affichée.
    *
-   * @param message the message to display
+   * @param messageKey clé Transloco du message
+   * @param type       type visuel (défaut `info`)
+   * @param params     paramètres d'interpolation Transloco optionnels
+   * @param action     lien d'action optionnel (clé Transloco + route)
+   * @returns l'identifiant du toast affiché (existant si dédupliqué)
    */
-  success(message: string): void {
-    this.toastSignal.set({ kind: 'status', message });
+  show(
+    messageKey: string,
+    type: ToastType = 'info',
+    params?: Record<string, string | number>,
+    action?: ToastAction,
+  ): number {
+    const existing = this._toasts().find(
+      (t) => t.messageKey === messageKey && JSON.stringify(t.params) === JSON.stringify(params),
+    );
+    if (existing) {
+      return existing.id;
+    }
+    const id = ++this.nextId;
+    this._toasts.update((list) => [...list, { id, messageKey, type, params, action }]);
+    setTimeout(() => this.dismiss(id), TOAST_AUTO_DISMISS_MS);
+    return id;
   }
 
   /**
-   * Shows an error toast (`role="alert"`).
+   * Ferme un toast (manuellement ou via l'auto-dismiss).
    *
-   * @param message the message to display
+   * @param id identifiant retourné par {@link show}
    */
-  error(message: string): void {
-    this.toastSignal.set({ kind: 'alert', message });
-  }
-
-  /** Clears the current toast. */
-  dismiss(): void {
-    this.toastSignal.set(null);
+  dismiss(id: number): void {
+    this._toasts.update((list) => list.filter((t) => t.id !== id));
   }
 }

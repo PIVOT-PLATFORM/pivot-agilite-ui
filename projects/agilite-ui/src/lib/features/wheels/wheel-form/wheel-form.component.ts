@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { TeamMemberResponse, WheelEntryRequest, WheelEntryType } from '../models/wheel.model';
 import { extractErrorCode } from '../services/wheel-error.util';
 import { ToastService } from '../services/toast.service';
@@ -136,7 +136,6 @@ export class WheelFormComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly wheelApi = inject(WheelApiService);
   private readonly toastService = inject(ToastService);
-  private readonly transloco = inject(TranslocoService);
 
   /** `true` when editing an existing wheel, `false` when creating a new one. */
   readonly isEdit: boolean;
@@ -283,7 +282,7 @@ export class WheelFormComponent implements OnInit {
 
     const onSuccess = (): void => {
       this.saving.set(false);
-      this.toastService.success(this.transloco.translate('wheels.form.saveSuccess'));
+      this.toastService.show('wheels.form.saveSuccess', 'success');
       this.router.navigate(['/wheels']);
     };
     const onError = (error: unknown): void => {
