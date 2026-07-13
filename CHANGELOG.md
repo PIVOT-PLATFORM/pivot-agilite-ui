@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/compare/v0.1.0...v0.2.0) (2026-07-13)
+
+
+### Features
+
+* **agilite:** extraction lib EN18 + hub Daily/Roue/Capacity ([#48](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/issues/48)) ([c5f03e7](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/commit/c5f03e77ce747244673bf0c7bac49fbf3b7e96e1))
+
 # [0.1.0](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/compare/v0.0.0...v0.1.0) (2026-07-10)
 
 
