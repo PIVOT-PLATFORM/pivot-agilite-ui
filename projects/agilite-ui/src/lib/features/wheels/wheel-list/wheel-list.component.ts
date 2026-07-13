@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { TeamResponse, WheelResponse } from '../models/wheel.model';
 import { ToastService } from '../services/toast.service';
 import { WheelApiService } from '../services/wheel-api.service';
@@ -89,10 +89,10 @@ import { WheelApiService } from '../services/wheel-api.service';
         </div>
       }
 
-      @if (toast(); as t) {
-        <div [attr.role]="t.kind">
-          <span>{{ t.message }}</span>
-          <button type="button" (click)="dismissToast()">{{ 'wheels.list.dismiss' | transloco }}</button>
+      @for (t of toasts(); track t.id) {
+        <div [attr.role]="t.type === 'error' || t.type === 'warning' ? 'alert' : 'status'">
+          <span>{{ t.messageKey | transloco }}</span>
+          <button type="button" (click)="dismissToast(t.id)">{{ 'wheels.list.dismiss' | transloco }}</button>
         </div>
       }
     </section>
@@ -101,7 +101,6 @@ import { WheelApiService } from '../services/wheel-api.service';
 export class WheelListComponent implements OnInit {
   private readonly wheelApi = inject(WheelApiService);
   private readonly toastService = inject(ToastService);
-  private readonly transloco = inject(TranslocoService);
 
   private readonly cancelButton = viewChild<ElementRef<HTMLButtonElement>>('cancelButton');
   private triggerElement: HTMLElement | null = null;
@@ -121,8 +120,8 @@ export class WheelListComponent implements OnInit {
   /** The wheel pending delete confirmation, or `null`. */
   readonly pendingDelete = signal<WheelResponse | null>(null);
 
-  /** The current toast to display, forwarded from {@link ToastService}. */
-  readonly toast = this.toastService.current;
+  /** The toasts to display, forwarded from {@link ToastService}. */
+  readonly toasts = this.toastService.toasts;
 
   constructor() {
     effect(() => {
@@ -194,20 +193,20 @@ export class WheelListComponent implements OnInit {
       next: () => {
         this.pendingDelete.set(null);
         this.restoreFocus();
-        this.toastService.success(this.transloco.translate('wheels.list.deleteSuccess'));
+        this.toastService.show('wheels.list.deleteSuccess', 'success');
         this.loadWheels();
       },
       error: () => {
         this.pendingDelete.set(null);
         this.restoreFocus();
-        this.toastService.error(this.transloco.translate('wheels.list.deleteError'));
+        this.toastService.show('wheels.list.deleteError', 'error');
       },
     });
   }
 
-  /** Dismisses the current toast. */
-  dismissToast(): void {
-    this.toastService.dismiss();
+  /** Dismisses the given toast. */
+  dismissToast(id: number): void {
+    this.toastService.dismiss(id);
   }
 
   private restoreFocus(): void {

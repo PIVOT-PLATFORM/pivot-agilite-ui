@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { AntiRepeatMode, WheelDrawResponse, WheelResponse, WheelSpinResponse } from '../models/wheel.model';
 import { ToastService } from '../services/toast.service';
 import { WheelApiService } from '../services/wheel-api.service';
@@ -98,7 +98,6 @@ export class WheelDetailComponent implements OnInit, OnDestroy {
   private readonly wheelApi = inject(WheelApiService);
   private readonly wheelWs = inject(WheelWsService);
   private readonly toastService = inject(ToastService);
-  private readonly transloco = inject(TranslocoService);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly wheelId: string;
@@ -222,7 +221,7 @@ export class WheelDetailComponent implements OnInit, OnDestroy {
       error: () => {
         this.spinning.set(false);
         this.spinNetworkError.set(true);
-        this.toastService.error(this.transloco.translate('wheels.detail.spinError'));
+        this.toastService.show('wheels.detail.spinError', 'error');
       },
     });
   }

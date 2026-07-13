@@ -119,7 +119,7 @@ describe('WheelListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pendingDelete()).toBeNull();
-    expect(fixture.componentInstance.toast()?.kind).toBe('status');
+    expect(fixture.componentInstance.toasts()[0]?.type).toBe('success');
   });
 
   it('confirmDelete() shows an error toast when the delete request fails', () => {
@@ -134,7 +134,7 @@ describe('WheelListComponent', () => {
     httpMock.expectOne(`${environment.apiUrl}/wheels/${wheel.id}`).flush('boom', { status: 500, statusText: 'Server Error' });
 
     expect(fixture.componentInstance.pendingDelete()).toBeNull();
-    expect(fixture.componentInstance.toast()?.kind).toBe('alert');
+    expect(fixture.componentInstance.toasts()[0]?.type).toBe('error');
   });
 
   it('dismissToast() clears the current toast', () => {
@@ -149,8 +149,9 @@ describe('WheelListComponent', () => {
     httpMock.expectOne(`${environment.apiUrl}/wheels/${wheel.id}`).flush(null);
     httpMock.expectOne((r) => r.url === `${environment.apiUrl}/wheels`).flush([]);
 
-    fixture.componentInstance.dismissToast();
-    expect(fixture.componentInstance.toast()).toBeNull();
+    const toastId = fixture.componentInstance.toasts()[0].id;
+    fixture.componentInstance.dismissToast(toastId);
+    expect(fixture.componentInstance.toasts()).toEqual([]);
   });
 
   it('loadWheels() is a no-op while no team is selected', () => {
