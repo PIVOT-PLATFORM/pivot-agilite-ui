@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { AGILITE_API_URL } from '../../core/config/tokens';
 import { CreateTicketRequest, RevealResponse, TicketResponse } from './ticket.model';
 
 /**
@@ -14,6 +14,7 @@ import { CreateTicketRequest, RevealResponse, TicketResponse } from './ticket.mo
 @Injectable({ providedIn: 'root' })
 export class TicketService {
   private readonly http = inject(HttpClient);
+  private readonly apiUrl = inject(AGILITE_API_URL);
 
   /**
    * Builds the tickets base URL for a given room.
@@ -22,7 +23,7 @@ export class TicketService {
    * @returns the base URL for that room's ticket endpoints
    */
   private ticketsUrl(roomId: string): string {
-    return `${environment.apiUrl}/poker/rooms/${roomId}/tickets`;
+    return `${this.apiUrl}/poker/rooms/${roomId}/tickets`;
   }
 
   /**

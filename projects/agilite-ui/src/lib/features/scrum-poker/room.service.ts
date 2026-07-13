@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { AGILITE_API_URL } from '../../core/config/tokens';
 import {
   AnonymousJoinRequest,
   AnonymousJoinResponse,
@@ -29,7 +29,7 @@ import {
 export class RoomService {
   private readonly http = inject(HttpClient);
 
-  private readonly baseUrl = `${environment.apiUrl}/poker/rooms`;
+  private readonly baseUrl = `${inject(AGILITE_API_URL)}/poker/rooms`;
 
   /**
    * Creates a new planning poker room. The caller becomes its facilitator automatically

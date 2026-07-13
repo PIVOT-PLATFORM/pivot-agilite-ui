@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
+import { AGILITE_API_URL } from '../../../core/config/tokens';
 import {
   CloseContributionResponse,
   CloseSessionResponse,
@@ -56,6 +56,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class RetroApiService {
   private readonly http = inject(HttpClient);
+  private readonly apiUrl = inject(AGILITE_API_URL);
 
   /**
    * Creates a retrospective session for `request.teamId`. The caller must be an
@@ -72,7 +73,7 @@ export class RetroApiService {
    *   belongs to another tenant (`CUSTOM_FORMAT_NOT_FOUND`).
    */
   create(request: CreateRetroSessionRequest): Observable<RetroSessionResponse> {
-    return this.http.post<RetroSessionResponse>(`${environment.apiUrl}/retro/sessions`, request);
+    return this.http.post<RetroSessionResponse>(`${this.apiUrl}/retro/sessions`, request);
   }
 
   /**
@@ -83,7 +84,7 @@ export class RetroApiService {
    */
   resolveByJoinCode(joinCode: string): Observable<RetroSessionJoinResponse> {
     return this.http.get<RetroSessionJoinResponse>(
-      `${environment.apiUrl}/retro/sessions/join/${joinCode}`,
+      `${this.apiUrl}/retro/sessions/join/${joinCode}`,
     );
   }
 
@@ -100,7 +101,7 @@ export class RetroApiService {
    *   session or belongs to another tenant.
    */
   getById(sessionId: string): Observable<RetroSessionResponse> {
-    return this.http.get<RetroSessionResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}`);
+    return this.http.get<RetroSessionResponse>(`${this.apiUrl}/retro/sessions/${sessionId}`);
   }
 
   /**
@@ -116,7 +117,7 @@ export class RetroApiService {
    */
   joinRealtimeSession(sessionId: string): Observable<RetroParticipantAccessResponse> {
     return this.http.post<RetroParticipantAccessResponse>(
-      `${environment.apiUrl}/retro/sessions/${sessionId}/participants`,
+      `${this.apiUrl}/retro/sessions/${sessionId}/participants`,
       {},
     );
   }
@@ -132,7 +133,7 @@ export class RetroApiService {
    */
   closeContribution(sessionId: string): Observable<CloseContributionResponse> {
     return this.http.post<CloseContributionResponse>(
-      `${environment.apiUrl}/retro/sessions/${sessionId}/contribution/close`,
+      `${this.apiUrl}/retro/sessions/${sessionId}/contribution/close`,
       {},
     );
   }
@@ -147,7 +148,7 @@ export class RetroApiService {
    *   session or belongs to another tenant, 409 session has not yet reached `REVUE`.
    */
   reveal(sessionId: string): Observable<RevealResponse> {
-    return this.http.post<RevealResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/reveal`, {});
+    return this.http.post<RevealResponse>(`${this.apiUrl}/retro/sessions/${sessionId}/reveal`, {});
   }
 
   /**
@@ -160,7 +161,7 @@ export class RetroApiService {
    *   session or belongs to another tenant, 409 session has not yet reached `REVUE`.
    */
   openVote(sessionId: string): Observable<OpenVoteResponse> {
-    return this.http.post<OpenVoteResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/open`, {});
+    return this.http.post<OpenVoteResponse>(`${this.apiUrl}/retro/sessions/${sessionId}/vote/open`, {});
   }
 
   /**
@@ -174,7 +175,7 @@ export class RetroApiService {
    *   session or belongs to another tenant, 409 session not currently in `VOTE`.
    */
   closeVote(sessionId: string): Observable<CloseVoteResponse> {
-    return this.http.post<CloseVoteResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/vote/close`, {});
+    return this.http.post<CloseVoteResponse>(`${this.apiUrl}/retro/sessions/${sessionId}/vote/close`, {});
   }
 
   /**
@@ -188,7 +189,7 @@ export class RetroApiService {
    *   session or belongs to another tenant, 409 session not currently in `ACTION`.
    */
   closeSession(sessionId: string): Observable<CloseSessionResponse> {
-    return this.http.post<CloseSessionResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/close`, {});
+    return this.http.post<CloseSessionResponse>(`${this.apiUrl}/retro/sessions/${sessionId}/close`, {});
   }
 
   /**
@@ -209,7 +210,7 @@ export class RetroApiService {
    *   currently in `ACTION`.
    */
   createAction(sessionId: string, request: CreateRetroActionRequest): Observable<RetroActionResponse> {
-    return this.http.post<RetroActionResponse>(`${environment.apiUrl}/retro/sessions/${sessionId}/actions`, request);
+    return this.http.post<RetroActionResponse>(`${this.apiUrl}/retro/sessions/${sessionId}/actions`, request);
   }
 
   /**
@@ -226,7 +227,7 @@ export class RetroApiService {
    *   action or belongs to another tenant.
    */
   updateActionStatus(actionId: string, request: UpdateRetroActionStatusRequest): Observable<RetroActionResponse> {
-    return this.http.patch<RetroActionResponse>(`${environment.apiUrl}/retro/actions/${actionId}`, request);
+    return this.http.patch<RetroActionResponse>(`${this.apiUrl}/retro/actions/${actionId}`, request);
   }
 
   /**
@@ -251,7 +252,7 @@ export class RetroApiService {
     if (filter?.sort) {
       params = params.set('sort', filter.sort);
     }
-    return this.http.get<RetroActionResponse[]>(`${environment.apiUrl}/retro/teams/${teamId}/actions`, { params });
+    return this.http.get<RetroActionResponse[]>(`${this.apiUrl}/retro/teams/${teamId}/actions`, { params });
   }
 
   /**
@@ -268,7 +269,7 @@ export class RetroApiService {
    *   not a member of `teamId` or team belongs to another tenant.
    */
   listPendingActions(teamId: number): Observable<RetroActionResponse[]> {
-    return this.http.get<RetroActionResponse[]>(`${environment.apiUrl}/retro/teams/${teamId}/retro/pending-actions`);
+    return this.http.get<RetroActionResponse[]>(`${this.apiUrl}/retro/teams/${teamId}/retro/pending-actions`);
   }
 
   /**
@@ -283,7 +284,7 @@ export class RetroApiService {
    * @throws HttpErrorResponse 401 no/invalid token (expected today, see class TSDoc).
    */
   listTeamMembers(teamId: number): Observable<RetroTeamMemberResponse[]> {
-    return this.http.get<RetroTeamMemberResponse[]>(`${environment.apiUrl}/teams/${teamId}/members`);
+    return this.http.get<RetroTeamMemberResponse[]>(`${this.apiUrl}/teams/${teamId}/members`);
   }
 
   /**
@@ -295,7 +296,7 @@ export class RetroApiService {
    * @throws HttpErrorResponse 401 no/invalid token (expected today, see class TSDoc).
    */
   listFormats(): Observable<RetroFormatsResponse> {
-    return this.http.get<RetroFormatsResponse>(`${environment.apiUrl}/retro/formats`);
+    return this.http.get<RetroFormatsResponse>(`${this.apiUrl}/retro/formats`);
   }
 
   /**
@@ -311,6 +312,6 @@ export class RetroApiService {
    *   (expected today, see class TSDoc).
    */
   createFormat(request: CreateRetroFormatRequest): Observable<RetroFormatDefinition> {
-    return this.http.post<RetroFormatDefinition>(`${environment.apiUrl}/retro/formats`, request);
+    return this.http.post<RetroFormatDefinition>(`${this.apiUrl}/retro/formats`, request);
   }
 }

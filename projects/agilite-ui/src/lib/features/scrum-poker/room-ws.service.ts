@@ -1,7 +1,7 @@
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { Observable, Subject, Subscription } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { AGILITE_WS_URL } from '../../core/config/tokens';
 import { SubmitVoteRequest } from './ticket.model';
 
 /**
@@ -69,6 +69,7 @@ export const STOMP_CLIENT_FACTORY = new InjectionToken<() => StompClient>('STOMP
 @Injectable({ providedIn: 'root' })
 export class RoomWsService {
   private readonly createClient = inject(STOMP_CLIENT_FACTORY);
+  private readonly wsBaseUrl = inject(AGILITE_WS_URL);
 
   /** Current connection status — drives the connecting/connected/error UI (US09.1.2 AC). */
   readonly status = signal<RoomConnectionStatus>('connecting');
@@ -176,13 +177,13 @@ export class RoomWsService {
   }
 
   /**
-   * Derives the STOMP broker URL from {@link environment.wsUrl}. The dev environment exposes
-   * an absolute `ws://` URL directly; the nginx-proxied production build uses a relative path
-   * (mirrors `environment.prod.ts`'s handling of `apiUrl`), resolved here against the current
+   * Derives the STOMP broker URL from the injected {@link AGILITE_WS_URL}. The dev environment
+   * exposes an absolute `ws://` URL directly; the nginx-proxied production build uses a relative
+   * path (mirrors `environment.prod.ts`'s handling of `apiUrl`), resolved here against the current
    * page origin.
    */
   private buildWsUrl(): string {
-    const wsUrl = environment.wsUrl;
+    const wsUrl = this.wsBaseUrl;
     if (/^wss?:\/\//.test(wsUrl)) {
       return wsUrl;
     }

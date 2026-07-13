@@ -1,7 +1,7 @@
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { RxStomp, RxStompState } from '@stomp/rx-stomp';
 import { Observable, Subject, Subscription } from 'rxjs';
-import { environment } from '../../../../environments/environment';
+import { AGILITE_WS_URL } from '../../../core/config/tokens';
 
 /**
  * Native STOMP header carrying the caller's real platform bearer token — same header name and
@@ -86,6 +86,7 @@ export const WHEEL_STOMP_CLIENT_FACTORY = new InjectionToken<() => StompClient>(
 @Injectable({ providedIn: 'root' })
 export class WheelWsService {
   private readonly createClient = inject(WHEEL_STOMP_CLIENT_FACTORY);
+  private readonly wsBaseUrl = inject(AGILITE_WS_URL);
 
   /** Current connection status. */
   readonly status = signal<WheelWsConnectionStatus>('connecting');
@@ -166,7 +167,7 @@ export class WheelWsService {
 
   /** See `RoomWsService.buildWsUrl`'s identical logic/rationale. */
   private buildWsUrl(): string {
-    const wsUrl = environment.wsUrl;
+    const wsUrl = this.wsBaseUrl;
     if (/^wss?:\/\//.test(wsUrl)) {
       return wsUrl;
     }
