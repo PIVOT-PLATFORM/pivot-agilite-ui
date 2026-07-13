@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/compare/v0.2.1...v0.3.0) (2026-07-13)
+
+
+### Features
+
+* **i18n:** ship module translations in the published package ([#59](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/issues/59)) ([fe02636](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/commit/fe026360fa2c42fa7bf528ad68e7b9afe11ac784))
+
 ## [0.2.1](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/compare/v0.2.0...v0.2.1) (2026-07-13)
 
 
