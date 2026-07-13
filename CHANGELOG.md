@@ -1,3 +1,10 @@
+## [0.2.1](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/compare/v0.2.0...v0.2.1) (2026-07-13)
+
+
+### Bug Fixes
+
+* **release:** publie le paquet npm @pivot-platform/agilite-ui + .npmrc auth ([#57](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/issues/57)) ([2141ae1](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/commit/2141ae10112aec604ae21f76258287695c2f0a50))
+
 # [0.2.0](https://github.com/PIVOT-PLATFORM/pivot-agilite-ui/compare/v0.1.0...v0.2.0) (2026-07-13)
 
 
