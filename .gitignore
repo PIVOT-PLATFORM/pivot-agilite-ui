@@ -17,6 +17,9 @@ yarn-error.log*
 *.key
 
 # ===== Tests / Coverage =====
+# Session recette persistée par recette.setup.ts (cookie de session du compte de test) —
+# jamais committée : secret d'auth, régénérée à chaque run e2e-recette.
+e2e-recette/.auth/
 playwright-report/
 test-results/
 coverage/
